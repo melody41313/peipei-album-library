@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>紙頁 · 相片圖書館</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700;900&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+
+<!-- Firebase (compat SDK, 不需要 build tool) -->
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-storage-compat.js"></script>
+
+<style>
+  :root{
+    --paper:#f4efe3;
+    --paper-warm:#ece3d0;
+    --ink:#2e2a22;
+    --ink-soft:#5a5346;
+    --brass:#a9824f;
+    --green:#4a5a44;
+    --terracotta:#a9603f;
+    --navy:#3c4a5c;
+    --rose:#8c5a5a;
+    --line:rgba(46,42,34,0.14);
+    --shadow: 0 18px 40px rgba(30,24,14,0.18);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse at top left, rgba(255,255,255,0.35), transparent 55%),
+      var(--paper);
+    color:var(--ink);
+    font-family:"Noto Serif TC", serif;
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+  ::selection{ background: var(--brass); color:#fff; }
+
+  .eyebrow{
+    font-family:"Cormorant Garamond", serif;
+    letter-spacing:0.3em;
+    text-transform:uppercase;
+    font-size:12px;
+    color:var(--ink-soft);
+  }
+
+  #config-banner{
+    display:none;
+    background:#3c2f22; color:#f4efe3; font-size:13px; line-height:1.8;
+    padding:14px 20px; text-align:center;
+  }
+  #config-banner a{ color:#e7c592; }
+
+  .view{ display:none; min-height:100vh; }
+  .view.active{ display:block; }
+
+  #view-library{ padding: 56px 6vw 120px; }
+  .library-header{
+    display:flex; align-items:flex-end; justify-content:space-between;
+    gap:24px; margin-bottom:54px; flex-wrap:wrap;
+    border-bottom:1px solid var(--line); padding-bottom:22px;
+  }
+  .library-title{
+    font-size:clamp(30px,4.4vw,52px);
+    font-weight:700;
+    margin:6px 0 0;
+    letter-spacing:0.04em;
+  }
+  .library-sub{ color:var(--ink-soft); font-size:14px; margin-top:10px; max-width:46ch; line-height:1.9; }
+
+  .shelf-wrap{ position:relative; }
+  .shelf-row{
+    display:flex;
+    align-items:flex-end;
+    gap:26px;
+    flex-wrap:wrap;
+    padding:0 4px 26px;
+    position:relative;
+  }
+  .shelf-row::after{
+    content:"";
+    position:absolute; left:-14px; right:-14px; bottom:0; height:16px;
+    background:linear-gradient(180deg, #b98f5c, #7c5a34);
+    border-radius:2px;
+    box-shadow: 0 10px 16px rgba(30,20,8,0.28);
+  }
+  .shelf-row::before{
+    content:"";
+    position:absolute; left:-14px; right:-14px; bottom:-10px; height:10px;
+    background:rgba(30,20,8,0.18);
+    filter:blur(6px);
+  }
+
+  .book-spine{
+    position:relative;
+    width:64px;
+    height:230px;
+    border-radius:3px 6px 6px 3px;
+    cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow: inset -6px 0 10px rgba(0,0,0,0.18), inset 3px 0 0 rgba(255,255,255,0.12), 0 10px 18px rgba(20,14,6,0.25);
+    transition: transform .35s cubic-bezier(.2,.8,.2,1), box-shadow .35s;
+    transform-origin:bottom center;
+  }
+  .book-spine:hover{ transform: translateY(-14px) rotate(-1.2deg); }
+  .book-spine .spine-title{
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    color:rgba(255,250,240,0.94);
+    font-size:16px;
+    font-weight:600;
+    letter-spacing:0.12em;
+    max-height:200px;
+    overflow:hidden;
+    text-shadow:0 1px 2px rgba(0,0,0,0.25);
+  }
+  .book-spine .spine-count{
+    position:absolute; bottom:10px; left:50%; transform:translateX(-50%);
+    font-family:"Cormorant Garamond",serif; font-size:12px; color:rgba(255,250,240,0.75);
+  }
+
+  .empty-state{
+    padding:80px 20px; text-align:center; color:var(--ink-soft);
+    border:1px solid var(--line); border-radius:6px; background:rgba(255,255,255,0.3);
+  }
+  .empty-state .big{ font-size:20px; color:var(--ink); margin-bottom:10px; }
+
+  .gear-btn{
+    position:fixed; right:26px; bottom:26px; width:52px; height:52px; border-radius:50%;
+    background:var(--ink); color:var(--paper); border:none; cursor:pointer;
+    font-size:20px; box-shadow:var(--shadow); z-index:60;
+    display:flex; align-items:center; justify-content:center;
+    transition:transform .3s;
+  }
+  .gear-btn:hover{ transform:rotate(35deg) scale(1.05); }
+
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(20,16,10,0.55);
+    display:flex; align-items:center; justify-content:center; z-index:100;
+    padding:20px; backdrop-filter: blur(2px);
+  }
+  .modal-overlay.hidden{ display:none; }
+  .modal-card{
+    background:var(--paper); width:100%; max-width:420px; border-radius:8px;
+    box-shadow:var(--shadow); padding:34px 30px; position:relative;
+    border:1px solid var(--line);
+  }
+  .modal-card.wide{ max-width:900px; padding:0; overflow:hidden; }
+  .modal-close{
+    position:absolute; top:14px; right:16px; background:none; border:none;
+    font-size:20px; cursor:pointer; color:var(--ink-soft);
+  }
+  .modal-title{ font-size:22px; font-weight:700; margin:0 0 6px; }
+  .modal-desc{ font-size:13px; color:var(--ink-soft); margin:0 0 22px; line-height:1.7; }
+  .field{ margin-bottom:16px; }
+  .field label{ display:block; font-size:12px; letter-spacing:.08em; color:var(--ink-soft); margin-bottom:6px; }
+  .field input, .field textarea, .field select{
+    width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:4px;
+    background:#fff; font-family:"Noto Serif TC",serif; font-size:14px; color:var(--ink);
+  }
+  .field textarea{ resize:vertical; min-height:64px; }
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center;
+    padding:11px 22px; border-radius:4px; border:none; cursor:pointer;
+    font-family:"Noto Serif TC",serif; font-size:14px; letter-spacing:.03em;
+    transition:.2s;
+  }
+  .btn-primary{ background:var(--ink); color:var(--paper); }
+  .btn-primary:hover{ background:#443f34; }
+  .btn-ghost{ background:transparent; color:var(--ink-soft); border:1px solid var(--line); }
+  .btn-ghost:hover{ border-color:var(--ink-soft); color:var(--ink); }
+  .btn-danger{ background:transparent; color:var(--terracotta); border:1px solid rgba(169,96,63,0.4); }
+  .btn-danger:hover{ background:rgba(169,96,63,0.08); }
+  .btn-row{ display:flex; gap:10px; margin-top:6px; flex-wrap:wrap; }
+  .msg{ font-size:12.5px; margin-top:8px; min-height:16px; }
+  .msg.err{ color:var(--terracotta); }
+  .msg.ok{ color:var(--green); }
+
+  .admin-layout{ display:flex; min-height:520px; max-height:82vh; }
+  .admin-sidebar{
+    width:230px; background:var(--paper-warm); border-right:1px solid var(--line);
+    padding:24px 16px; overflow-y:auto; flex-shrink:0;
+  }
+  .admin-sidebar h3{ font-size:13px; letter-spacing:.1em; color:var(--ink-soft); margin:0 0 14px; text-transform:uppercase;}
+  .album-list-item{
+    display:flex; align-items:center; justify-content:space-between; gap:6px;
+    padding:9px 10px; border-radius:4px; cursor:pointer; font-size:14px; margin-bottom:4px;
+    transition:.15s;
+  }
+  .album-list-item:hover{ background:rgba(46,42,34,0.06); }
+  .album-list-item.active{ background:var(--ink); color:var(--paper); }
+  .album-list-item .swatch{ width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+  .admin-main{ flex:1; padding:28px 30px; overflow-y:auto; }
+  .admin-main h2{ font-size:20px; margin:0 0 4px; }
+  .swatch-row{ display:flex; gap:8px; margin-top:4px; }
+  .swatch-pick{ width:26px; height:26px; border-radius:50%; cursor:pointer; border:2px solid transparent; }
+  .swatch-pick.selected{ border-color:var(--ink); }
+
+  .upload-zone{
+    border:1.5px dashed var(--line); border-radius:6px; padding:26px; text-align:center;
+    color:var(--ink-soft); font-size:13px; margin:18px 0; cursor:pointer; transition:.2s;
+  }
+  .upload-zone:hover{ border-color:var(--brass); color:var(--brass); }
+
+  .photo-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:12px; margin-top:14px; }
+  .photo-thumb{ position:relative; border-radius:5px; overflow:hidden; background:#00000010; aspect-ratio:1/1; border:1px solid var(--line); }
+  .photo-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .photo-thumb .thumb-actions{
+    position:absolute; inset:0; background:rgba(20,16,10,0.55); opacity:0; transition:.2s;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .photo-thumb:hover .thumb-actions{ opacity:1; }
+  .thumb-actions button{
+    width:28px; height:28px; border-radius:50%; border:none; cursor:pointer;
+    background:rgba(255,255,255,0.92); font-size:13px;
+  }
+  .thumb-order{ position:absolute; top:4px; left:4px; background:rgba(20,16,10,0.6); color:#fff; font-size:10px; padding:1px 5px; border-radius:8px; }
+
+  #view-book{
+    min-height:100vh; display:flex; flex-direction:column; align-items:center;
+    padding:34px 4vw 40px; position:relative;
+  }
+  .book-topbar{ width:100%; max-width:980px; display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; }
+  .book-topbar .back-btn{
+    background:none; border:none; cursor:pointer; color:var(--ink-soft); font-size:14px;
+    font-family:"Noto Serif TC",serif; display:flex; align-items:center; gap:6px;
+  }
+  .book-topbar .back-btn:hover{ color:var(--ink); }
+  .book-topbar .book-heading{ text-align:center; }
+  .book-topbar .book-heading .t{ font-size:18px; font-weight:700; }
+  .book-topbar .book-heading .p{ font-family:"Cormorant Garamond",serif; font-size:12px; color:var(--ink-soft); letter-spacing:.1em; }
+
+  .stage{
+    perspective:2200px;
+    width:100%; max-width:980px;
+    display:flex; align-items:center; gap:14px; justify-content:center;
+  }
+  .nav-arrow{
+    width:44px; height:44px; border-radius:50%; border:1px solid var(--line); background:rgba(255,255,255,0.5);
+    cursor:pointer; font-size:16px; color:var(--ink-soft); flex-shrink:0; transition:.2s;
+  }
+  .nav-arrow:hover:not(:disabled){ background:var(--ink); color:var(--paper); border-color:var(--ink); }
+  .nav-arrow:disabled{ opacity:.25; cursor:default; }
+
+  .spread{
+    display:flex; width:100%; max-width:860px; aspect-ratio:16/9.4; max-height:64vh;
+    background:linear-gradient(90deg, #fbf8f0 0%, #f4efe3 48%, #f4efe3 52%, #fbf8f0 100%);
+    border-radius:6px; box-shadow: var(--shadow), 0 0 0 1px rgba(46,42,34,0.06);
+    overflow:hidden; position:relative;
+  }
+  .spread::before{
+    content:""; position:absolute; left:50%; top:0; bottom:0; width:26px; margin-left:-13px;
+    background:linear-gradient(90deg, rgba(0,0,0,0.10), rgba(0,0,0,0) 40%, rgba(0,0,0,0) 60%, rgba(0,0,0,0.10));
+    pointer-events:none;
+  }
+  .left-page, .right-page{
+    flex:1; padding:34px 32px; display:flex; flex-direction:column; justify-content:center;
+    position:relative; min-width:0;
+  }
+  .left-page{ align-items:flex-end; text-align:right; }
+  .left-page .cap-wrap{ max-width:88%; }
+  .left-page .page-eyebrow{ font-family:"Cormorant Garamond",serif; font-size:13px; color:var(--brass); letter-spacing:.12em; margin-bottom:10px;}
+  .left-page .caption{ font-size:15px; line-height:2; color:var(--ink-soft); }
+  .left-page .page-num{ position:absolute; bottom:18px; right:26px; font-family:"Cormorant Garamond",serif; font-size:12px; color:var(--ink-soft); }
+  .left-page .cover-title{ font-size:26px; font-weight:700; line-height:1.5; margin-bottom:14px; }
+  .left-page .cover-desc{ font-size:13.5px; color:var(--ink-soft); line-height:1.9; }
+
+  .right-page{ align-items:center; transform-origin:left center; transition: transform .32s ease, opacity .32s ease; }
+  .right-page.flip-out{ transform:rotateY(-92deg); opacity:0.35; }
+  .photo-frame{
+    background:#fffdf8; padding:10px 10px 26px; box-shadow:0 6px 18px rgba(20,14,6,0.18);
+    max-width:88%; max-height:90%; display:flex; align-items:center; justify-content:center;
+  }
+  .photo-frame img{ max-width:100%; max-height:calc(64vh - 90px); object-fit:contain; display:block; }
+  .book-cover-illustration{
+    font-family:"Cormorant Garamond",serif; font-size:60px; color:var(--brass); opacity:0.5;
+  }
+
+  .book-hint{ margin-top:16px; font-size:12px; color:var(--ink-soft); font-family:"Cormorant Garamond",serif; letter-spacing:.06em; }
+
+  .locked-note{ font-size:12px; color:var(--ink-soft); margin-top:14px; line-height:1.8; }
+
+  @media (max-width:720px){
+    .admin-layout{ flex-direction:column; max-height:none; }
+    .admin-sidebar{ width:100%; display:flex; overflow-x:auto; gap:6px; border-right:none; border-bottom:1px solid var(--line); }
+    .album-list-item{ flex-shrink:0; }
+    .spread{ flex-direction:column; aspect-ratio:auto; max-height:none; }
+    .spread::before{ display:none; }
+    .left-page{ align-items:flex-start; text-align:left; order:2; padding:20px 22px; }
+    .right-page{ order:1; padding:22px; }
+    .photo-frame img{ max-height:38vh; }
+    .stage{ flex-direction:column; }
+    .nav-arrow{ align-self:center; }
+  }
+</style>
+</head>
+<body>
+
+<div id="config-banner">
+  ⚠️ 尚未設定 Firebase：請打開 index.html，找到 <code>firebaseConfig</code>，貼上你自己 Firebase 專案的設定值。
+  詳見隨附的 <b>README.md</b>。
+</div>
+
+<div id="app">
+
+  <!-- ===================== LIBRARY VIEW ===================== -->
+  <div id="view-library" class="view active">
+    <div class="library-header">
+      <div>
+        <div class="eyebrow">Personal Archive</div>
+        <h1 class="library-title" id="site-title-text">相片圖書館</h1>
+        <p class="library-sub">收藏日子的樣子。點一本書，翻開它。</p>
+      </div>
+    </div>
+
+    <div id="shelf-container" class="shelf-wrap"></div>
+  </div>
+
+  <!-- ===================== BOOK READER VIEW ===================== -->
+  <div id="view-book" class="view">
+    <div class="book-topbar">
+      <button class="back-btn" id="back-to-library">← 回到書架</button>
+      <div class="book-heading">
+        <div class="t" id="book-title-text"></div>
+        <div class="p" id="book-page-indicator"></div>
+      </div>
+      <div style="width:78px;"></div>
+    </div>
+    <div class="stage">
+      <button class="nav-arrow" id="prev-page">‹</button>
+      <div class="spread">
+        <div class="left-page" id="left-page-content"></div>
+        <div class="right-page" id="right-page-content"></div>
+      </div>
+      <button class="nav-arrow" id="next-page">›</button>
+    </div>
+    <div class="book-hint">用左右箭頭翻頁</div>
+  </div>
+
+  <!-- gear -->
+  <button class="gear-btn" id="gear-btn" title="後台管理">⚙</button>
+
+  <!-- ===================== LOGIN MODAL ===================== -->
+  <div class="modal-overlay hidden" id="modal-login">
+    <div class="modal-card">
+      <button class="modal-close" id="close-login">×</button>
+      <div class="modal-title">管理員登入</div>
+      <p class="modal-desc">用你在 Firebase Authentication 建立的帳號登入，才能管理相簿。</p>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="you@example.com">
+      </div>
+      <div class="field">
+        <label>密碼</label>
+        <input type="password" id="login-password" placeholder="••••••••">
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="login-submit">登入</button>
+      </div>
+      <div class="msg err" id="login-msg"></div>
+      <div class="locked-note">＊帳號密碼是在你自己的 Firebase Console → Authentication 建立的，不是在這個頁面設定。</div>
+    </div>
+  </div>
+
+  <!-- ===================== ADMIN MODAL ===================== -->
+  <div class="modal-overlay hidden" id="modal-admin">
+    <div class="modal-card wide">
+      <button class="modal-close" id="close-admin" style="z-index:5;">×</button>
+      <div class="admin-layout">
+        <div class="admin-sidebar">
+          <h3>我的相簿</h3>
+          <div id="admin-album-list"></div>
+          <button class="btn btn-ghost" style="width:100%; margin-top:10px;" id="new-album-btn">＋ 新增相簿</button>
+          <div style="margin-top:26px; border-top:1px solid var(--line); padding-top:16px;">
+            <h3>圖書館設定</h3>
+            <div class="field">
+              <label>圖書館名稱</label>
+              <input type="text" id="site-title-input" placeholder="相片圖書館">
+            </div>
+            <button class="btn btn-ghost" id="save-site-title" style="font-size:12px; padding:8px 14px;">儲存名稱</button>
+            <button class="btn btn-ghost" id="logout-btn" style="width:100%; margin-top:20px; font-size:12px;">登出</button>
+          </div>
+        </div>
+        <div class="admin-main" id="admin-main">
+          <div class="empty-state" style="border:none; background:none;">選擇左側的相簿，或新增一本。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== NEW / EDIT ALBUM MODAL ===================== -->
+  <div class="modal-overlay hidden" id="modal-album-form">
+    <div class="modal-card">
+      <button class="modal-close" id="close-album-form">×</button>
+      <div class="modal-title" id="album-form-title">新增相簿</div>
+      <div class="field">
+        <label>書名</label>
+        <input type="text" id="album-title-input" placeholder="例如：京都的秋天">
+      </div>
+      <div class="field">
+        <label>簡介（顯示在封面頁）</label>
+        <textarea id="album-desc-input" placeholder="寫下這本相簿的故事……"></textarea>
+      </div>
+      <div class="field">
+        <label>書脊顏色</label>
+        <div class="swatch-row" id="color-swatches"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="save-album-btn">儲存</button>
+        <button class="btn btn-ghost" id="cancel-album-btn">取消</button>
+      </div>
+      <div class="msg err" id="album-form-msg"></div>
+    </div>
+  </div>
+
+  <input type="file" id="file-input" accept="image/*" multiple style="display:none;">
+</div>
+
+<script>
+/* =========================================================
+   1) 把下面換成你自己 Firebase 專案的設定值
+      Firebase Console → 專案設定 → 一般 → 你的應用程式 → SDK 設定與程式碼
+   ========================================================= */
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+
+(function(){
+  const COLORS = [
+    {name:'墨綠', hex:'#4a5a44'},
+    {name:'赤陶', hex:'#a9603f'},
+    {name:'靛藍', hex:'#3c4a5c'},
+    {name:'黛紫', hex:'#5a4a5c'},
+    {name:'焦糖', hex:'#a9824f'},
+    {name:'胭脂', hex:'#8c5a5a'},
+  ];
+
+  if (!firebaseConfig.apiKey || firebaseConfig.apiKey === 'YOUR_API_KEY'){
+    document.getElementById('config-banner').style.display = 'block';
+    return; // 不初始化 Firebase，避免報錯
+  }
+
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+  const storage = firebase.storage();
+
+  let isAdmin = false;
+  let currentAlbumId = null;
+  let pendingEditAlbumId = null;
+  let selectedColor = COLORS[0].hex;
+
+  let readerAlbum = null;
+  let readerPhotos = [];
+  let readerIndex = 0;
+
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+  function show(el){ el.classList.remove('hidden'); }
+  function hide(el){ el.classList.add('hidden'); }
+  function $(id){ return document.getElementById(id); }
+  function escapeHtml(s){
+    return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function shade(hex, percent){
+    const num = parseInt(hex.replace('#',''),16);
+    let r = (num>>16) + Math.round(2.55*percent);
+    let g = ((num>>8)&0xff) + Math.round(2.55*percent);
+    let b = (num&0xff) + Math.round(2.55*percent);
+    r = Math.min(255,Math.max(0,r)); g = Math.min(255,Math.max(0,g)); b = Math.min(255,Math.max(0,b));
+    return '#' + (r.toString(16).padStart(2,'0')) + (g.toString(16).padStart(2,'0')) + (b.toString(16).padStart(2,'0'));
+  }
+
+  function switchView(id){
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    $(id).classList.add('active');
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  function fileToCompressedBlob(file){
+    return new Promise((resolve, reject)=>{
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const MAX = 1400;
+          let w = img.width, h = img.height;
+          if (w > MAX || h > MAX){
+            if (w > h){ h = Math.round(h * MAX / w); w = MAX; }
+            else { w = Math.round(w * MAX / h); h = MAX; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          canvas.toBlob(blob=>resolve(blob), 'image/jpeg', 0.82);
+        };
+        img.onerror = reject;
+        img.src = reader.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // =========================================================
+  // LIBRARY (public) VIEW
+  // =========================================================
+  async function loadAlbums(){
+    const snap = await db.collection('albums').orderBy('createdAt','asc').get();
+    return snap.docs.map(d=>({ id:d.id, ...d.data() }));
+  }
+
+  async function renderLibrary(){
+    try{
+      const siteDoc = await db.collection('meta').doc('site').get();
+      const title = siteDoc.exists ? siteDoc.data().title : '';
+      $('site-title-text').textContent = title || '相片圖書館';
+      $('site-title-input').value = title || '';
+    }catch(e){}
+
+    const container = $('shelf-container');
+    container.innerHTML = '<div style="padding:40px 0; color:var(--ink-soft); font-size:13px;">書架整理中……</div>';
+
+    let albums = [];
+    try{ albums = await loadAlbums(); }
+    catch(e){
+      container.innerHTML = `<div class="empty-state"><div class="big">讀取失敗</div><div>請確認 Firestore 規則已允許公開讀取（見 README）。</div></div>`;
+      return;
+    }
+
+    if (albums.length === 0){
+      container.innerHTML = `<div class="empty-state">
+        <div class="big">書架還是空的</div>
+        <div>點右下角 ⚙ 進入後台，建立第一本相簿吧。</div>
+      </div>`;
+      return;
+    }
+
+    // 取得每本相簿的照片數量
+    const counts = await Promise.all(albums.map(a =>
+      db.collection('albums').doc(a.id).collection('photos').get().then(s=>s.size).catch(()=>0)
+    ));
+
+    const row = document.createElement('div');
+    row.className = 'shelf-row';
+    albums.forEach((album, i)=>{
+      const spine = document.createElement('div');
+      spine.className = 'book-spine';
+      spine.style.background = `linear-gradient(160deg, ${album.color}, ${shade(album.color,-18)})`;
+      spine.innerHTML = `<div class="spine-title">${escapeHtml(album.title || '未命名')}</div>
+        <div class="spine-count">${counts[i]}</div>`;
+      spine.addEventListener('click', ()=> openReader(album.id));
+      row.appendChild(spine);
+    });
+    container.innerHTML = '';
+    container.appendChild(row);
+  }
+
+  // =========================================================
+  // BOOK READER VIEW
+  // =========================================================
+  async function openReader(albumId){
+    switchView('view-book');
+    $('left-page-content').innerHTML = '';
+    $('right-page-content').innerHTML = '<div class="book-cover-illustration">…</div>';
+    const doc = await db.collection('albums').doc(albumId).get();
+    if (!doc.exists){ switchView('view-library'); return; }
+    readerAlbum = { id: doc.id, ...doc.data() };
+
+    const snap = await db.collection('albums').doc(albumId).collection('photos').orderBy('order','asc').get();
+    readerPhotos = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+    readerIndex = 0;
+    $('book-title-text').textContent = readerAlbum.title || '未命名';
+    renderReaderPage();
+  }
+
+  function renderReaderPage(){
+    const total = readerPhotos.length;
+    $('book-page-indicator').textContent = total === 0 ? '封面' : `第 ${readerIndex} / ${total} 頁`;
+    $('prev-page').disabled = readerIndex <= 0;
+    $('next-page').disabled = readerIndex >= total;
+
+    const left = $('left-page-content');
+    const right = $('right-page-content');
+
+    if (readerIndex === 0){
+      left.innerHTML = `<div class="cap-wrap">
+          <div class="page-eyebrow">Album</div>
+          <div class="cover-title">${escapeHtml(readerAlbum.title||'未命名')}</div>
+          <div class="cover-desc">${escapeHtml(readerAlbum.desc||'')}</div>
+        </div>`;
+      right.innerHTML = total === 0
+        ? `<div class="book-cover-illustration">尚無照片</div>`
+        : `<div class="book-cover-illustration">開始翻閱 →</div>`;
+    } else {
+      const photo = readerPhotos[readerIndex - 1];
+      left.innerHTML = `<div class="cap-wrap">
+          <div class="page-eyebrow">No. ${String(readerIndex).padStart(2,'0')}</div>
+          <div class="caption">${escapeHtml(photo.caption || '')}</div>
+        </div>
+        <div class="page-num">${readerIndex} / ${total}</div>`;
+      right.innerHTML = `<div class="photo-frame"><img src="${photo.url}" alt="" loading="lazy"></div>`;
+    }
+  }
+
+  function flipPage(dir){
+    const total = readerPhotos.length;
+    const newIndex = readerIndex + dir;
+    if (newIndex < 0 || newIndex > total) return;
+    const right = $('right-page-content');
+    right.classList.add('flip-out');
+    setTimeout(()=>{
+      readerIndex = newIndex;
+      renderReaderPage();
+      right.classList.remove('flip-out');
+    }, 260);
+  }
+
+  $('prev-page').addEventListener('click', ()=>flipPage(-1));
+  $('next-page').addEventListener('click', ()=>flipPage(1));
+  document.addEventListener('keydown', (e)=>{
+    if (!$('view-book').classList.contains('active')) return;
+    if (e.key === 'ArrowRight') flipPage(1);
+    if (e.key === 'ArrowLeft') flipPage(-1);
+  });
+  $('back-to-library').addEventListener('click', ()=>{
+    switchView('view-library');
+    renderLibrary();
+  });
+
+  // =========================================================
+  // LOGIN (Firebase Authentication)
+  // =========================================================
+  $('gear-btn').addEventListener('click', ()=>{
+    $('login-msg').textContent = '';
+    $('login-email').value = '';
+    $('login-password').value = '';
+    show($('modal-login'));
+  });
+  $('close-login').addEventListener('click', ()=>hide($('modal-login')));
+
+  $('login-submit').addEventListener('click', async ()=>{
+    const email = $('login-email').value.trim();
+    const pw = $('login-password').value;
+    const msg = $('login-msg');
+    msg.textContent = '';
+    if (!email || !pw){ msg.textContent = '請輸入 Email 與密碼。'; return; }
+    try{
+      await auth.signInWithEmailAndPassword(email, pw);
+      hide($('modal-login'));
+    }catch(e){
+      msg.textContent = '登入失敗：帳號或密碼錯誤，請確認已在 Firebase Console 建立此帳號。';
+    }
+  });
+
+  $('logout-btn').addEventListener('click', async ()=>{
+    await auth.signOut();
+    hide($('modal-admin'));
+    renderLibrary();
+  });
+
+  auth.onAuthStateChanged((user)=>{
+    isAdmin = !!user;
+    if (isAdmin){ openAdminPanel(); }
+  });
+
+  // =========================================================
+  // ADMIN PANEL
+  // =========================================================
+  $('close-admin').addEventListener('click', ()=>{ hide($('modal-admin')); renderLibrary(); });
+
+  async function openAdminPanel(){
+    show($('modal-admin'));
+    await renderAdminAlbumList();
+    $('admin-main').innerHTML = '<div class="empty-state" style="border:none; background:none;">選擇左側的相簿，或新增一本。</div>';
+  }
+
+  async function renderAdminAlbumList(){
+    const listEl = $('admin-album-list');
+    let albums = [];
+    try{ albums = await loadAlbums(); }catch(e){}
+    if (albums.length === 0){
+      listEl.innerHTML = '<div style="font-size:12.5px; color:var(--ink-soft); padding:6px 4px;">尚未建立相簿</div>';
+      return;
+    }
+    listEl.innerHTML = '';
+    albums.forEach(album=>{
+      const div = document.createElement('div');
+      div.className = 'album-list-item' + (album.id === currentAlbumId ? ' active' : '');
+      div.innerHTML = `<span style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+          <span class="swatch" style="background:${album.color}"></span>
+          <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(album.title)}</span>
+        </span>`;
+      div.addEventListener('click', ()=>{ currentAlbumId = album.id; renderAdminAlbumList(); renderAdminMain(album); });
+      listEl.appendChild(div);
+    });
+  }
+
+  async function renderAdminMain(album){
+    const main = $('admin-main');
+    main.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+        <div>
+          <h2>${escapeHtml(album.title)}</h2>
+          <div style="font-size:12.5px; color:var(--ink-soft);">${escapeHtml(album.desc||'（沒有簡介）')}</div>
+        </div>
+        <div class="btn-row" style="margin-top:0;">
+          <button class="btn btn-ghost" id="edit-album-btn" style="font-size:12px; padding:8px 14px;">編輯相簿資訊</button>
+          <button class="btn btn-danger" id="delete-album-btn" style="font-size:12px; padding:8px 14px;">刪除相簿</button>
+        </div>
+      </div>
+      <div class="upload-zone" id="upload-zone">拖曳或點擊此處上傳照片（可多選）</div>
+      <div class="photo-grid" id="photo-grid"></div>
+    `;
+    $('edit-album-btn').addEventListener('click', ()=> openAlbumForm(album));
+    $('delete-album-btn').addEventListener('click', ()=> deleteAlbum(album));
+    $('upload-zone').addEventListener('click', ()=>{
+      $('file-input').onchange = (e)=> handleUpload(album.id, e.target.files);
+      $('file-input').value = '';
+      $('file-input').click();
+    });
+    await renderPhotoGrid(album.id);
+  }
+
+  async function renderPhotoGrid(albumId){
+    const grid = $('photo-grid');
+    grid.innerHTML = '<div style="font-size:12.5px; color:var(--ink-soft);">載入照片中……</div>';
+    const snap = await db.collection('albums').doc(albumId).collection('photos').orderBy('order','asc').get();
+    const photos = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+    if (photos.length === 0){
+      grid.innerHTML = '<div style="font-size:12.5px; color:var(--ink-soft);">還沒有照片。</div>';
+      return;
+    }
+    grid.innerHTML = '';
+    photos.forEach((p, i)=>{
+      const div = document.createElement('div');
+      div.className = 'photo-thumb';
+      div.innerHTML = `<img src="${p.url}" alt="" loading="lazy">
+        <div class="thumb-order">${i+1}</div>
+        <div class="thumb-actions">
+          <button title="上移" data-act="up">↑</button>
+          <button title="下移" data-act="down">↓</button>
+          <button title="說明文字" data-act="cap">✎</button>
+          <button title="刪除" data-act="del">✕</button>
+        </div>`;
+      div.querySelector('[data-act="del"]').addEventListener('click', async ()=>{
+        if (!confirm('確定要刪除這張照片嗎？')) return;
+        try{
+          if (p.storagePath) await storage.ref().child(p.storagePath).delete();
+        }catch(e){}
+        await db.collection('albums').doc(albumId).collection('photos').doc(p.id).delete();
+        await renderPhotoGrid(albumId);
+      });
+      div.querySelector('[data-act="cap"]').addEventListener('click', async ()=>{
+        const newCap = prompt('說明文字（會顯示在翻頁時的左頁）', p.caption || '');
+        if (newCap === null) return;
+        await db.collection('albums').doc(albumId).collection('photos').doc(p.id).update({ caption: newCap });
+        await renderPhotoGrid(albumId);
+      });
+      div.querySelector('[data-act="up"]').addEventListener('click', async ()=>{
+        if (i === 0) return;
+        await swapOrder(albumId, photos, i, i-1);
+      });
+      div.querySelector('[data-act="down"]').addEventListener('click', async ()=>{
+        if (i === photos.length-1) return;
+        await swapOrder(albumId, photos, i, i+1);
+      });
+      grid.appendChild(div);
+    });
+  }
+
+  async function swapOrder(albumId, photos, i, j){
+    const a = photos[i], b = photos[j];
+    const tmpOrder = a.order;
+    await db.collection('albums').doc(albumId).collection('photos').doc(a.id).update({ order: b.order });
+    await db.collection('albums').doc(albumId).collection('photos').doc(b.id).update({ order: tmpOrder });
+    await renderPhotoGrid(albumId);
+  }
+
+  async function handleUpload(albumId, files){
+    if (!files || files.length === 0) return;
+    const grid = $('photo-grid');
+    grid.insertAdjacentHTML('beforeend', `<div id="upload-progress" style="font-size:12.5px; color:var(--ink-soft); grid-column:1/-1;">上傳中 0 / ${files.length}……</div>`);
+    let done = 0;
+    let baseOrder = Date.now();
+    for (const file of Array.from(files)){
+      try{
+        const blob = await fileToCompressedBlob(file);
+        const photoId = uid();
+        const path = `photos/${albumId}/${photoId}.jpg`;
+        const ref = storage.ref().child(path);
+        await ref.put(blob);
+        const url = await ref.getDownloadURL();
+        await db.collection('albums').doc(albumId).collection('photos').doc(photoId).set({
+          url, storagePath: path, caption:'', order: baseOrder++
+        });
+      }catch(e){ console.error('upload failed', e); }
+      done++;
+      const prog = $('upload-progress');
+      if (prog) prog.textContent = `上傳中 ${done} / ${files.length}……`;
+    }
+    await renderPhotoGrid(albumId);
+    await renderAdminAlbumList();
+  }
+
+  async function deleteAlbum(album){
+    if (!confirm(`確定要刪除《${album.title}》嗎？此動作無法復原，相簿內所有照片也會一併刪除。`)) return;
+    const snap = await db.collection('albums').doc(album.id).collection('photos').get();
+    for (const d of snap.docs){
+      const p = d.data();
+      try{ if (p.storagePath) await storage.ref().child(p.storagePath).delete(); }catch(e){}
+      await d.ref.delete();
+    }
+    await db.collection('albums').doc(album.id).delete();
+    currentAlbumId = null;
+    await renderAdminAlbumList();
+    $('admin-main').innerHTML = '<div class="empty-state" style="border:none; background:none;">選擇左側的相簿，或新增一本。</div>';
+  }
+
+  function buildSwatches(){
+    const wrap = $('color-swatches');
+    wrap.innerHTML = '';
+    COLORS.forEach(c=>{
+      const el = document.createElement('div');
+      el.className = 'swatch-pick';
+      el.style.background = c.hex;
+      el.title = c.name;
+      if (c.hex === selectedColor) el.classList.add('selected');
+      el.addEventListener('click', ()=>{
+        selectedColor = c.hex;
+        wrap.querySelectorAll('.swatch-pick').forEach(x=>x.classList.remove('selected'));
+        el.classList.add('selected');
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  $('new-album-btn').addEventListener('click', ()=> openAlbumForm(null));
+
+  function openAlbumForm(album){
+    pendingEditAlbumId = album ? album.id : null;
+    $('album-form-title').textContent = album ? '編輯相簿' : '新增相簿';
+    $('album-title-input').value = album ? album.title : '';
+    $('album-desc-input').value = album ? album.desc : '';
+    selectedColor = album ? album.color : COLORS[Math.floor(Math.random()*COLORS.length)].hex;
+    $('album-form-msg').textContent = '';
+    buildSwatches();
+    show($('modal-album-form'));
+  }
+  $('close-album-form').addEventListener('click', ()=> hide($('modal-album-form')));
+  $('cancel-album-btn').addEventListener('click', ()=> hide($('modal-album-form')));
+
+  $('save-album-btn').addEventListener('click', async ()=>{
+    const title = $('album-title-input').value.trim();
+    const desc = $('album-desc-input').value.trim();
+    const msg = $('album-form-msg');
+    if (!title){ msg.textContent = '請輸入書名。'; return; }
+    try{
+      if (pendingEditAlbumId){
+        await db.collection('albums').doc(pendingEditAlbumId).update({ title, desc, color: selectedColor });
+      } else {
+        const ref = await db.collection('albums').add({
+          title, desc, color: selectedColor,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        currentAlbumId = ref.id;
+      }
+    }catch(e){
+      msg.textContent = '儲存失敗，請確認 Firestore 規則允許已登入使用者寫入。';
+      return;
+    }
+    hide($('modal-album-form'));
+    await renderAdminAlbumList();
+    const id = pendingEditAlbumId || currentAlbumId;
+    const doc = await db.collection('albums').doc(id).get();
+    if (doc.exists) await renderAdminMain({ id: doc.id, ...doc.data() });
+  });
+
+  $('save-site-title').addEventListener('click', async ()=>{
+    const val = $('site-title-input').value.trim();
+    await db.collection('meta').doc('site').set({ title: val }, { merge: true });
+    $('site-title-text').textContent = val || '相片圖書館';
+  });
+
+  // ---------- init ----------
+  renderLibrary();
+})();
+</script>
+</body>
+</html>
