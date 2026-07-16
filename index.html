@@ -1331,6 +1331,149 @@ body.reader-fullscreen #next-page{right:12px}
   .reader-shell{height:100vh!important;min-height:100vh!important}
 }
 
+
+/* V13 — reliable native fullscreen with iOS fixed-screen fallback */
+html.reader-fullscreen-root,
+html.reader-fullscreen-root body{
+  width:100%;
+  height:100%;
+  overflow:hidden!important;
+  overscroll-behavior:none;
+  background:#111!important;
+}
+body.reader-fullscreen #view-book{
+  display:block!important;
+  position:fixed!important;
+  inset:0!important;
+  z-index:590!important;
+  width:var(--reader-vw,100vw)!important;
+  height:var(--reader-vh,100dvh)!important;
+  min-height:0!important;
+  padding:0!important;
+  margin:0!important;
+  overflow:hidden!important;
+  background:#111!important;
+}
+body.reader-fullscreen .stage{
+  position:absolute!important;
+  inset:0!important;
+  width:100%!important;
+  height:100%!important;
+  max-width:none!important;
+  margin:0!important;
+}
+body.reader-fullscreen .reader-shell{
+  position:absolute!important;
+  inset:0!important;
+  width:100%!important;
+  height:100%!important;
+  min-height:0!important;
+  max-height:none!important;
+  max-width:none!important;
+  margin:0!important;
+}
+body.reader-fullscreen .reader-page{
+  width:100%!important;
+  height:100%!important;
+}
+body.reader-fullscreen .page-main{
+  width:100%!important;
+  height:100%!important;
+}
+body.reader-fullscreen .reader-shell.is-uploaded-cover,
+body.reader-fullscreen .reader-shell.is-uploaded-back{
+  position:absolute!important;
+  inset:0!important;
+  width:100%!important;
+  height:100%!important;
+}
+body.reader-fullscreen .reader-shell.is-uploaded-cover .page-main,
+body.reader-fullscreen .reader-shell.is-uploaded-back .page-main{
+  object-fit:contain!important;
+}
+@supports(height:100dvh){
+  body.reader-fullscreen #view-book{height:var(--reader-vh,100dvh)!important}
+}
+
+
+/* V14 — enter cover first, enlarge only when requested */
+.reader-actions{
+  display:flex;
+  justify-content:center;
+  margin-top:14px;
+}
+.reader-enlarge-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  min-height:42px;
+  padding:9px 16px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:rgba(255,255,255,.72);
+  color:var(--ink);
+  box-shadow:0 8px 24px rgba(38,30,20,.08);
+}
+.reader-enlarge-btn svg{
+  width:18px;height:18px;
+  fill:none;stroke:currentColor;stroke-width:1.6;
+  stroke-linecap:round;stroke-linejoin:round;
+}
+.reader-enlarge-btn:hover{background:#fff}
+
+body.reader-fullscreen .reader-actions{display:none!important}
+body.reader-fullscreen .reader-shell.is-inside-page .page-main{
+  object-fit:contain!important;
+  background:#111!important;
+}
+body.reader-fullscreen .reader-shell.is-inside-page{
+  background:#111!important;
+}
+body.reader-fullscreen .reader-shell.is-inside-page .center-gutter{
+  display:block!important;
+}
+body.reader-fullscreen .reader-caption{
+  display:none!important;
+}
+
+/* Normal view can remain full bleed, but mobile normal view should avoid cropping too */
+@media(max-width:760px){
+  .reader-enlarge-btn{min-height:40px;padding:8px 14px}
+  .reader-shell.is-inside-page .page-main{
+    object-fit:contain!important;
+    background:#111!important;
+  }
+}
+
+
+.fullscreen-exit-btn{
+  position:fixed;right:14px;top:14px;z-index:650;
+  width:42px;height:42px;border-radius:50%;
+  border:1px solid rgba(255,255,255,.28);
+  background:rgba(20,20,20,.48);color:#fff;font-size:24px;
+}
+body.reader-fullscreen .fullscreen-exit-btn{display:grid!important;place-items:center}
+
+
+/* V15 — show landscape guidance before entering reader mode */
+.landscape-reading-overlay{
+  position:fixed;inset:0;z-index:620;
+  display:flex;align-items:center;justify-content:center;
+  padding:20px;background:rgba(29,24,18,.46);backdrop-filter:blur(8px)
+}
+.landscape-reading-card{
+  width:min(360px,90vw);
+  padding:30px 24px;border-radius:20px;
+  background:#f8f3ea;text-align:center;
+  box-shadow:0 28px 80px rgba(30,24,18,.24)
+}
+.landscape-reading-card h2{margin:8px 0 10px;font-size:24px}
+.landscape-reading-card p{
+  margin:0 auto 20px;
+  color:var(--ink-soft);font-size:13px;line-height:1.9
+}
+.landscape-reading-card .btn{width:100%;margin-top:8px}
+
 </style>
 </head>
 <body>
@@ -1450,10 +1593,19 @@ body.reader-fullscreen #next-page{right:12px}
       <div style="width:78px"></div>
     </div>
 
+    <button class="fullscreen-exit-btn hidden" id="fullscreen-exit-btn" type="button" aria-label="離開全螢幕">×</button>
     <div class="stage">
       <button class="nav-arrow" id="prev-page">‹</button>
       <div class="reader-shell" id="reader-spread"></div>
       <button class="nav-arrow" id="next-page">›</button>
+    </div>
+    <div class="reader-actions" id="reader-actions">
+      <button class="reader-enlarge-btn" id="reader-enlarge-btn" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path>
+        </svg>
+        <span>開始閱讀</span>
+      </button>
     </div>
     <div class="book-hint">← 使用左右箭頭翻閱 →</div>
     <div class="swipe-hint">左右滑動翻閱相本</div>
@@ -1609,12 +1761,27 @@ body.reader-fullscreen #next-page{right:12px}
         <div class="rotate-loop">↻</div>
       </div>
       <strong>請將手機橫向</strong>
-      <span>轉動手機後會自動進入相本</span>
+      <span>橫向後會自動進入相本閱讀</span>
     </div>
   </div>
 
   <div class="tablet-tip hidden" id="tablet-tip">
     橫向觀看可獲得最佳閱讀體驗
+  </div>
+
+
+  <div class="landscape-reading-overlay hidden" id="landscape-reading-overlay">
+    <div class="landscape-reading-card">
+      <div class="reader-phone-illustration">
+        <div class="phone-shape"><span></span></div>
+        <div class="rotate-arrow">↻</div>
+      </div>
+      <div class="eyebrow">Best Viewing Experience</div>
+      <h2>請將裝置橫向觀看</h2>
+      <p>這本相本採用跨頁設計，橫向閱讀可以完整保留版面。</p>
+      <button class="btn btn-primary" id="landscape-confirm-btn">我知道了</button>
+      <button class="btn btn-ghost" id="landscape-cancel-btn">稍後再看</button>
+    </div>
   </div>
 
   <input id="file-input" type="file" accept="image/*" multiple hidden>
@@ -2379,21 +2546,39 @@ const firebaseConfig = {
   }
 
   async function enterReaderFullscreen(){
-    try{
-      if(document.documentElement.requestFullscreen){
-        await document.documentElement.requestFullscreen();
-      }else if(document.documentElement.webkitRequestFullscreen){
-        document.documentElement.webkitRequestFullscreen();
-      }
-    }catch(e){}
+    const readerElement=$("view-book");
+    let enteredNativeFullscreen=false;
 
+    // Always enable the CSS fullscreen fallback first.
     document.body.classList.add("reader-fullscreen");
+    document.documentElement.classList.add("reader-fullscreen-root");
+    window.scrollTo(0,1);
+
+    try{
+      if(readerElement.requestFullscreen){
+        await readerElement.requestFullscreen({navigationUI:"hide"});
+        enteredNativeFullscreen=true;
+      }else if(readerElement.webkitRequestFullscreen){
+        await readerElement.webkitRequestFullscreen();
+        enteredNativeFullscreen=true;
+      }else if(readerElement.webkitEnterFullscreen){
+        readerElement.webkitEnterFullscreen();
+        enteredNativeFullscreen=true;
+      }
+    }catch(e){
+      // iPhone Safari commonly rejects non-video fullscreen.
+      enteredNativeFullscreen=false;
+    }
+
+    document.body.dataset.nativeFullscreen=enteredNativeFullscreen?"true":"false";
 
     try{
       if(screen.orientation?.lock){
         await screen.orientation.lock("landscape");
       }
     }catch(e){}
+
+    updateReaderViewportHeight();
 
     if(isPhone() && isPortrait()){
       show($("rotate-device-overlay"));
@@ -2402,8 +2587,19 @@ const firebaseConfig = {
     }
   }
 
+  function updateReaderViewportHeight(){
+    const height=window.visualViewport?.height||window.innerHeight;
+    const width=window.visualViewport?.width||window.innerWidth;
+    document.documentElement.style.setProperty("--reader-vh",`${height}px`);
+    document.documentElement.style.setProperty("--reader-vw",`${width}px`);
+  }
+
   function exitReaderFullscreenState(){
     document.body.classList.remove("reader-fullscreen");
+    document.documentElement.classList.remove("reader-fullscreen-root");
+    document.body.dataset.nativeFullscreen="";
+    document.documentElement.style.removeProperty("--reader-vh");
+    document.documentElement.style.removeProperty("--reader-vw");
     hide($("rotate-device-overlay"));
   }
 
@@ -2420,9 +2616,9 @@ const firebaseConfig = {
     }
   }
 
-  $("start-mobile-reading").addEventListener("click",async()=>{
+  $("start-mobile-reading").addEventListener("click",()=>{
     hide($("reader-start-overlay"));
-    await enterReaderFullscreen();
+    enterReaderFullscreen();
   });
 
   $("continue-portrait-reading").addEventListener("click",()=>{
@@ -2440,14 +2636,49 @@ const firebaseConfig = {
     }
   });
 
+
+  window.addEventListener("resize",async()=>{
+    if(pendingLandscapeStart && isPhone() && !isPortrait()){
+      hide($("rotate-device-overlay"));
+      hide($("landscape-reading-overlay"));
+      await enterReaderFullscreen();
+      pendingLandscapeStart=false;
+      return;
+    }
+
+    if(document.body.classList.contains("reader-fullscreen")){
+      updateReaderViewportHeight();
+      fitUploadedSinglePage();
+      if(isPhone() && isPortrait()) show($("rotate-device-overlay"));
+      else hide($("rotate-device-overlay"));
+    }
+  });
+
+  if(window.visualViewport){
+    window.visualViewport.addEventListener("resize",()=>{
+      if(document.body.classList.contains("reader-fullscreen")){
+        updateReaderViewportHeight();
+        fitUploadedSinglePage();
+      }
+    });
+  }
+
   window.addEventListener("orientationchange",()=>{
-    setTimeout(()=>{
+    setTimeout(async()=>{
+      if(pendingLandscapeStart && isPhone() && !isPortrait()){
+        hide($("rotate-device-overlay"));
+        hide($("landscape-reading-overlay"));
+        await enterReaderFullscreen();
+        pendingLandscapeStart=false;
+        return;
+      }
+
       if(document.body.classList.contains("reader-fullscreen")){
         if(isPhone() && isPortrait()) show($("rotate-device-overlay"));
         else hide($("rotate-device-overlay"));
         fitUploadedSinglePage();
       }
-    },220);
+    },260);
   });
 
   async function openReader(albumId){
@@ -2470,7 +2701,6 @@ const firebaseConfig = {
     $("book-title-text").textContent=readerAlbum.title||"未命名";
     switchView("view-book");
     renderReaderPage();
-    setTimeout(prepareMobileReading,120);
   }
 
   function getReaderPageHtml(page, index=readerIndex){
@@ -2516,6 +2746,11 @@ const firebaseConfig = {
     }
     $("prev-page").disabled=readerIndex===0;
     $("next-page").disabled=readerIndex===readerPages.length-1;
+
+    const enlargeLabel=$("reader-enlarge-btn")?.querySelector("span");
+    if(enlargeLabel){
+      enlargeLabel.textContent=single?"開始閱讀":"全螢幕閱讀";
+    }
   }
 
 
@@ -2574,6 +2809,64 @@ const firebaseConfig = {
     updateReaderMeta(nextPage);
     fitUploadedSinglePage();
   }
+
+
+  let pendingLandscapeStart=false;
+
+  function startLandscapeReadingFlow(){
+    pendingLandscapeStart=true;
+
+    if(isTablet()){
+      const tip=$("tablet-tip");
+      show(tip);
+      tip.classList.remove("show");
+      void tip.offsetWidth;
+      tip.classList.add("show");
+      setTimeout(()=>hide(tip),2600);
+      enterReaderFullscreen();
+      pendingLandscapeStart=false;
+      return;
+    }
+
+    if(isPhone()){
+      show($("landscape-reading-overlay"));
+      return;
+    }
+
+    enterReaderFullscreen();
+    pendingLandscapeStart=false;
+  }
+
+  $("reader-enlarge-btn").addEventListener("click",()=>{
+    startLandscapeReadingFlow();
+  });
+
+  $("landscape-confirm-btn").addEventListener("click",async()=>{
+    hide($("landscape-reading-overlay"));
+
+    if(isPhone() && isPortrait()){
+      show($("rotate-device-overlay"));
+      return;
+    }
+
+    await enterReaderFullscreen();
+    pendingLandscapeStart=false;
+  });
+
+  $("landscape-cancel-btn").addEventListener("click",()=>{
+    hide($("landscape-reading-overlay"));
+    pendingLandscapeStart=false;
+  });
+
+
+  $("fullscreen-exit-btn").addEventListener("click",async()=>{
+    if(document.fullscreenElement && document.exitFullscreen){
+      try{await document.exitFullscreen();}catch(e){}
+    }else if(document.webkitFullscreenElement && document.webkitExitFullscreen){
+      try{document.webkitExitFullscreen();}catch(e){}
+    }
+    exitReaderFullscreenState();
+  });
 
   $("prev-page").addEventListener("click",()=>flipPage(-1));
   $("next-page").addEventListener("click",()=>flipPage(1));
