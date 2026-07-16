@@ -25,6 +25,7 @@
     --rose:#8c5a5a;
     --line:rgba(46,42,34,0.14);
     --shadow: 0 18px 40px rgba(30,24,14,0.18);
+    --shadow-deep: 0 34px 80px rgba(30,24,14,0.24);
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
@@ -104,6 +105,10 @@
     box-shadow: inset -6px 0 10px rgba(0,0,0,0.18), inset 3px 0 0 rgba(255,255,255,0.12), 0 10px 18px rgba(20,14,6,0.25);
     transition: transform .35s cubic-bezier(.2,.8,.2,1), box-shadow .35s;
     transform-origin:bottom center;
+  }
+  .book-spine::after{
+    content:""; position:absolute; inset:9px 7px; border:1px solid rgba(255,255,255,.18);
+    border-radius:2px; pointer-events:none;
   }
   .book-spine:hover{ transform: translateY(-14px) rotate(-1.2deg); }
   .book-spine .spine-title{
@@ -221,7 +226,10 @@
 
   #view-book{
     min-height:100vh; display:flex; flex-direction:column; align-items:center;
-    padding:34px 4vw 40px; position:relative;
+    padding:26px 4vw 40px; position:relative;
+    background:
+      radial-gradient(circle at 50% 35%, rgba(255,255,255,.72), transparent 43%),
+      linear-gradient(135deg, #eee8dc, #f7f3ea 48%, #e8dfcf);
   }
   .book-topbar{ width:100%; max-width:980px; display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; }
   .book-topbar .back-btn{
@@ -235,8 +243,8 @@
 
   .stage{
     perspective:2200px;
-    width:100%; max-width:980px;
-    display:flex; align-items:center; gap:14px; justify-content:center;
+    width:100%; max-width:1120px;
+    display:grid; grid-template-columns:48px minmax(0, 1fr) 48px; align-items:center; gap:18px;
   }
   .nav-arrow{
     width:44px; height:44px; border-radius:50%; border:1px solid var(--line); background:rgba(255,255,255,0.5);
@@ -246,16 +254,22 @@
   .nav-arrow:disabled{ opacity:.25; cursor:default; }
 
   .spread{
-    display:flex; width:100%; max-width:860px; aspect-ratio:16/9.4; max-height:64vh;
+    display:flex; width:100%; max-width:940px; aspect-ratio:16/9.5; max-height:70vh; margin:auto;
     background:linear-gradient(90deg, #fbf8f0 0%, #f4efe3 48%, #f4efe3 52%, #fbf8f0 100%);
-    border-radius:6px; box-shadow: var(--shadow), 0 0 0 1px rgba(46,42,34,0.06);
-    overflow:hidden; position:relative;
+    border-radius:3px 7px 7px 3px; box-shadow: var(--shadow-deep), 0 0 0 1px rgba(46,42,34,0.08);
+    overflow:hidden; position:relative; transition:max-width .45s cubic-bezier(.2,.75,.2,1), aspect-ratio .45s ease, opacity .22s ease, transform .22s ease;
   }
   .spread::before{
     content:""; position:absolute; left:50%; top:0; bottom:0; width:26px; margin-left:-13px;
     background:linear-gradient(90deg, rgba(0,0,0,0.10), rgba(0,0,0,0) 40%, rgba(0,0,0,0) 60%, rgba(0,0,0,0.10));
-    pointer-events:none;
+    pointer-events:none; z-index:5;
   }
+  .spread.is-single{ max-width:430px; aspect-ratio:3/4; border-radius:4px 10px 10px 4px; }
+  .spread.is-single::before{ display:none; }
+  .spread.is-single .left-page{ display:none; }
+  .spread.is-single .right-page{ flex:1 1 100%; padding:0; align-items:stretch; }
+  .spread.is-cover{ background:var(--album-color, var(--green)); color:#f8f2e7; }
+  .spread.is-back{ background:var(--album-color, var(--green)); color:#f8f2e7; }
   .left-page, .right-page{
     flex:1; padding:34px 32px; display:flex; flex-direction:column; justify-content:center;
     position:relative; min-width:0;
@@ -278,6 +292,21 @@
   .book-cover-illustration{
     font-family:"Cormorant Garamond",serif; font-size:60px; color:var(--brass); opacity:0.5;
   }
+  .single-page-content{ width:100%; height:100%; padding:10%; display:flex; flex-direction:column; position:relative; }
+  .cover-rule{ width:42px; height:1px; background:currentColor; opacity:.65; margin:18px 0 22px; }
+  .cover-kicker{ font-family:"Cormorant Garamond",serif; letter-spacing:.28em; text-transform:uppercase; font-size:12px; opacity:.72; }
+  .single-cover-title{ font-size:clamp(28px,4vw,43px); line-height:1.35; letter-spacing:.08em; margin:auto 0 0; }
+  .single-cover-desc{ font-size:13px; line-height:2; opacity:.76; margin:20px 0 auto; max-width:28em; }
+  .cover-mark{ font-family:"Cormorant Garamond",serif; font-style:italic; font-size:13px; opacity:.7; }
+  .back-content{ align-items:center; justify-content:center; text-align:center; }
+  .back-ornament{ font-family:"Cormorant Garamond",serif; font-size:42px; font-style:italic; opacity:.6; margin-bottom:18px; }
+  .spread-media{ position:absolute; inset:0; z-index:2; background:#181714; opacity:0; pointer-events:none; transition:opacity .3s ease; }
+  .spread.is-photo .spread-media{ opacity:1; }
+  .spread-media img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .spread-media::after{ content:""; position:absolute; inset:0; background:linear-gradient(180deg,transparent 68%,rgba(10,9,7,.58)); pointer-events:none; }
+  .spread-caption{ position:absolute; z-index:4; left:28px; right:28px; bottom:22px; display:flex; align-items:flex-end; justify-content:space-between; gap:20px; color:#fff; text-shadow:0 1px 8px rgba(0,0,0,.45); }
+  .spread-caption .caption-text{ font-size:13px; line-height:1.8; max-width:54ch; }
+  .spread-caption .folio{ font-family:"Cormorant Garamond",serif; font-size:13px; letter-spacing:.12em; white-space:nowrap; }
 
   .book-hint{ margin-top:16px; font-size:12px; color:var(--ink-soft); font-family:"Cormorant Garamond",serif; letter-spacing:.06em; }
 
@@ -287,13 +316,19 @@
     .admin-layout{ flex-direction:column; max-height:none; }
     .admin-sidebar{ width:100%; display:flex; overflow-x:auto; gap:6px; border-right:none; border-bottom:1px solid var(--line); }
     .album-list-item{ flex-shrink:0; }
-    .spread{ flex-direction:column; aspect-ratio:auto; max-height:none; }
-    .spread::before{ display:none; }
+    #view-book{ padding:18px 14px 28px; }
+    .book-topbar{ margin-bottom:16px; }
+    .book-topbar .book-heading .t{ font-size:15px; }
+    .stage{ grid-template-columns:38px minmax(0,1fr) 38px; gap:7px; }
+    .spread{ aspect-ratio:4/3; max-height:none; }
+    .spread.is-single{ max-width:min(72vw,360px); aspect-ratio:3/4; }
+    .spread::before{ width:16px; margin-left:-8px; }
     .left-page{ align-items:flex-start; text-align:left; order:2; padding:20px 22px; }
     .right-page{ order:1; padding:22px; }
     .photo-frame img{ max-height:38vh; }
-    .stage{ flex-direction:column; }
-    .nav-arrow{ align-self:center; }
+    .nav-arrow{ width:36px; height:36px; }
+    .spread-caption{ left:14px; right:14px; bottom:12px; }
+    .spread-caption .caption-text{ font-size:11px; line-height:1.5; }
   }
 </style>
 </head>
@@ -334,10 +369,11 @@
       <div class="spread">
         <div class="left-page" id="left-page-content"></div>
         <div class="right-page" id="right-page-content"></div>
+        <div class="spread-media" id="spread-media"></div>
       </div>
       <button class="nav-arrow" id="next-page">›</button>
     </div>
-    <div class="book-hint">用左右箭頭翻頁</div>
+    <div class="book-hint">← &nbsp; 用左右箭頭翻閱 &nbsp; →</div>
   </div>
 
   <!-- gear -->
@@ -603,44 +639,62 @@ const firebaseConfig = {
 
   function renderReaderPage(){
     const total = readerPhotos.length;
-    $('book-page-indicator').textContent = total === 0 ? '封面' : `第 ${readerIndex} / ${total} 頁`;
+    const lastIndex = total + 1;
+    const spread = document.querySelector('.spread');
+    const media = $('spread-media');
+    const isCover = readerIndex === 0;
+    const isBack = readerIndex === lastIndex;
+    $('book-page-indicator').textContent = isCover ? 'FRONT COVER' : isBack ? 'BACK COVER' : `SPREAD ${String(readerIndex).padStart(2,'0')} / ${String(total).padStart(2,'0')}`;
     $('prev-page').disabled = readerIndex <= 0;
-    $('next-page').disabled = readerIndex >= total;
+    $('next-page').disabled = readerIndex >= lastIndex;
 
     const left = $('left-page-content');
     const right = $('right-page-content');
+    spread.className = 'spread';
+    spread.style.setProperty('--album-color', readerAlbum.color || '#4a5a44');
+    left.innerHTML = '';
+    right.innerHTML = '';
+    media.innerHTML = '';
 
-    if (readerIndex === 0){
-      left.innerHTML = `<div class="cap-wrap">
-          <div class="page-eyebrow">Album</div>
-          <div class="cover-title">${escapeHtml(readerAlbum.title||'未命名')}</div>
-          <div class="cover-desc">${escapeHtml(readerAlbum.desc||'')}</div>
-        </div>`;
-      right.innerHTML = total === 0
-        ? `<div class="book-cover-illustration">尚無照片</div>`
-        : `<div class="book-cover-illustration">開始翻閱 →</div>`;
+    if (isCover){
+      spread.classList.add('is-single','is-cover');
+      right.innerHTML = `<div class="single-page-content">
+        <div class="cover-kicker">Personal photo archive</div>
+        <div class="single-cover-title">${escapeHtml(readerAlbum.title||'未命名')}</div>
+        <div class="cover-rule"></div>
+        <div class="single-cover-desc">${escapeHtml(readerAlbum.desc||'')}</div>
+        <div class="cover-mark">Peipei Album Library · ${new Date().getFullYear()}</div>
+      </div>`;
+    } else if (isBack){
+      spread.classList.add('is-single','is-back');
+      right.innerHTML = `<div class="single-page-content back-content">
+        <div class="back-ornament">Fin.</div>
+        <div class="cover-kicker">End of album</div>
+      </div>`;
     } else {
+      spread.classList.add('is-photo');
       const photo = readerPhotos[readerIndex - 1];
-      left.innerHTML = `<div class="cap-wrap">
-          <div class="page-eyebrow">No. ${String(readerIndex).padStart(2,'0')}</div>
-          <div class="caption">${escapeHtml(photo.caption || '')}</div>
-        </div>
-        <div class="page-num">${readerIndex} / ${total}</div>`;
-      right.innerHTML = `<div class="photo-frame"><img src="${photo.dataUrl}" alt=""></div>`;
+      media.innerHTML = `<img src="${photo.dataUrl}" alt="${escapeHtml(photo.caption || readerAlbum.title || '')}">
+        <div class="spread-caption">
+          <div class="caption-text">${escapeHtml(photo.caption || '')}</div>
+          <div class="folio">${String(readerIndex).padStart(2,'0')} — ${String(total).padStart(2,'0')}</div>
+        </div>`;
     }
   }
 
   function flipPage(dir){
     const total = readerPhotos.length;
     const newIndex = readerIndex + dir;
-    if (newIndex < 0 || newIndex > total) return;
-    const right = $('right-page-content');
-    right.classList.add('flip-out');
+    if (newIndex < 0 || newIndex > total + 1) return;
+    const spread = document.querySelector('.spread');
+    spread.style.opacity = '.35';
+    spread.style.transform = `translateX(${dir > 0 ? '-12px' : '12px'}) rotateY(${dir > 0 ? '-4deg' : '4deg'})`;
     setTimeout(()=>{
       readerIndex = newIndex;
       renderReaderPage();
-      right.classList.remove('flip-out');
-    }, 260);
+      spread.style.opacity = '1';
+      spread.style.transform = 'none';
+    }, 220);
   }
 
   $('prev-page').addEventListener('click', ()=>flipPage(-1));
