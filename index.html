@@ -1504,7 +1504,7 @@ body.reader-fullscreen .fullscreen-exit-btn{display:grid!important;place-items:c
 }
 .reader-shell.is-inside-page,
 .reader-shell.is-inside-page .reader-page{
-  background:transparent!important;
+  background:#fff!important;
 }
 .reader-shell.is-inside-page{
   border:0!important;
@@ -1519,6 +1519,10 @@ body.reader-fullscreen .fullscreen-exit-btn{display:grid!important;place-items:c
   border-radius:0!important;
   box-shadow:none!important;
   outline:0!important;
+}
+body.reader-inside #view-book,
+body.reader-inside #view-book .stage{
+  background:#fff!important;
 }
 
 /* V16 — portrait phones and tablets show each half as one page */
@@ -1611,7 +1615,7 @@ body.reader-fullscreen .fullscreen-exit-btn{display:grid!important;place-items:c
     min-height:0!important;
     padding:6px 8px!important;
     overflow:hidden!important;
-    background:var(--paper)!important;
+    background:#fff!important;
     touch-action:none;
   }
   body.reader-active .book-topbar{
@@ -1629,14 +1633,15 @@ body.reader-fullscreen .fullscreen-exit-btn{display:grid!important;place-items:c
     display:none!important;
   }
   body.reader-active .book-topbar .back-btn{
-    min-height:38px;
-    padding:8px 13px;
+    min-height:30px;
+    padding:5px 10px;
     border:1px solid rgba(255,255,255,.46);
     border-radius:999px;
-    background:rgba(24,23,20,.22);
+    background:rgba(24,23,20,.14);
     color:#fff;
-    box-shadow:0 6px 20px rgba(0,0,0,.18);
+    box-shadow:none;
     backdrop-filter:blur(8px);
+    font-size:11px;
     pointer-events:auto;
   }
   body.reader-active .stage{
@@ -1666,24 +1671,24 @@ body.reader-fullscreen .fullscreen-exit-btn{display:grid!important;place-items:c
   display:none;
   align-items:center;
   gap:2px;
-  padding:4px;
+  padding:2px;
   border:1px solid rgba(255,255,255,.2);
   border-radius:999px;
   background:rgba(28,26,22,.76);
   color:#fff;
-  box-shadow:0 8px 26px rgba(0,0,0,.22);
+  box-shadow:0 5px 16px rgba(0,0,0,.14);
   backdrop-filter:blur(10px);
   transform:translateX(-50%);
 }
 .reader-zoom-controls button{
-  width:38px;
-  height:34px;
+  width:30px;
+  height:28px;
   padding:0;
   border:0;
   border-radius:999px;
   background:transparent;
   color:inherit;
-  font-size:20px;
+  font-size:17px;
 }
 .reader-zoom-controls button:active{background:rgba(255,255,255,.16)}
 .reader-zoom-controls .zoom-value{
@@ -2085,6 +2090,7 @@ const firebaseConfig = {
     $(id).classList.add("active");
     document.body.classList.toggle("reader-active",id==="view-book");
     document.documentElement.classList.toggle("reader-active-root",id==="view-book");
+    if(id!=="view-book")document.body.classList.remove("reader-inside");
     window.scrollTo({top:0,behavior:"auto"});
   }
 
@@ -3036,6 +3042,7 @@ const firebaseConfig = {
     shell.classList.toggle("is-uploaded-cover",page.readerType==="cover");
     shell.classList.toggle("is-uploaded-back",page.readerType==="back");
     shell.classList.toggle("is-inside-page",page.readerType==="inside");
+    document.body.classList.toggle("reader-inside",page.readerType==="inside");
     shell.classList.toggle("is-mobile-half",!!page.mobileHalf);
     if(page.mobileHalf) shell.dataset.mobileHalf=page.mobileHalf;
     else delete shell.dataset.mobileHalf;
