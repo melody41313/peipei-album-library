@@ -1489,52 +1489,34 @@ body.reader-fullscreen .fullscreen-exit-btn{display:grid!important;place-items:c
 }
 .landscape-reading-card .btn{width:100%;margin-top:8px}
 
-/* V16 — larger mobile reading canvas */
+/* V16 — on phones, show each half of an uploaded spread as one page */
 @media(max-width:760px){
-  #view-book{
-    padding:10px 8px 18px!important;
-  }
-  .book-topbar{
-    min-height:44px;
-    margin-bottom:8px!important;
-    padding:0 4px;
-  }
-  .book-topbar .back-btn{
-    font-size:12px;
-    white-space:nowrap;
-  }
-  .book-topbar>div:last-child{
-    width:58px!important;
-  }
-  .stage{
-    width:100%!important;
-    max-width:none!important;
-  }
-  .reader-shell{
-    width:100%!important;
-    height:calc(100dvh - 154px)!important;
-    min-height:420px!important;
-    max-height:none!important;
-  }
-  .reader-shell.is-single{
-    width:min(88vw,440px)!important;
-    max-width:min(88vw,440px)!important;
-    height:calc(100dvh - 154px)!important;
+  .reader-shell.is-mobile-half{
     min-height:0!important;
+    max-width:none!important;
+    background:#111!important;
   }
-  .reader-actions{margin-top:9px}
-  .swipe-hint{margin-top:7px}
-}
-
-@media(max-width:430px) and (orientation:portrait){
-  .reader-shell{
-    height:calc(100dvh - 148px)!important;
-    min-height:360px!important;
+  .reader-shell.is-mobile-half .page-main{
+    top:0!important;
+    bottom:auto!important;
+    left:0!important;
+    right:auto!important;
+    width:200%!important;
+    max-width:none!important;
+    height:100%!important;
+    object-fit:fill!important;
+    transform:none;
   }
-  .reader-shell.is-single{
-    width:90vw!important;
-    max-width:90vw!important;
-    height:calc(100dvh - 148px)!important;
+  .reader-shell.is-mobile-half[data-mobile-half="right"] .page-main{
+    transform:translateX(-50%);
+  }
+  .reader-shell.is-mobile-half .center-gutter{
+    display:none!important;
+  }
+  .reader-shell.is-mobile-half .reader-caption{
+    left:14px!important;
+    right:14px!important;
+    bottom:12px!important;
   }
 }
 
@@ -2767,9 +2749,16 @@ const firebaseConfig = {
     const inside=all.filter(p=>p.pageType==="inside"||!p.pageType).sort((a,b)=>a.order-b.order);
     const back=all.find(p=>p.pageType==="back");
 
+    const insideReaderPages=isPhone()
+      ? inside.flatMap((p,spreadIndex)=>[
+          {...p,readerType:"inside",mobileHalf:"left",spreadIndex},
+          {...p,readerType:"inside",mobileHalf:"right",spreadIndex}
+        ])
+      : inside.map((p,spreadIndex)=>({...p,readerType:"inside",spreadIndex}));
+
     readerPages=[
       cover?{...cover,readerType:"cover"}:{readerType:"generatedCover"},
-      ...inside.map(p=>({...p,readerType:"inside"})),
+      ...insideReaderPages,
       back?{...back,readerType:"back"}:{readerType:"generatedBack"}
     ];
 
@@ -2777,7 +2766,6 @@ const firebaseConfig = {
     $("book-title-text").textContent=readerAlbum.title||"未命名";
     switchView("view-book");
     renderReaderPage();
-    requestAnimationFrame(()=>prepareMobileReading());
   }
 
   function getReaderPageHtml(page, index=readerIndex){
@@ -2811,6 +2799,9 @@ const firebaseConfig = {
     shell.classList.toggle("is-uploaded-cover",page.readerType==="cover");
     shell.classList.toggle("is-uploaded-back",page.readerType==="back");
     shell.classList.toggle("is-inside-page",page.readerType==="inside");
+    shell.classList.toggle("is-mobile-half",!!page.mobileHalf);
+    if(page.mobileHalf) shell.dataset.mobileHalf=page.mobileHalf;
+    else delete shell.dataset.mobileHalf;
 
     const insideTotal=readerPages.filter(p=>p.readerType==="inside").length;
     if(page.readerType==="cover"||page.readerType==="generatedCover"){
@@ -2818,7 +2809,7 @@ const firebaseConfig = {
     }else if(page.readerType==="back"||page.readerType==="generatedBack"){
       $("book-page-indicator").textContent="BACK COVER";
     }else{
-      const current=readerPages.filter(p=>p.readerType==="inside").findIndex(p=>p.id===page.id)+1;
+      const current=readerPages.filter(p=>p.readerType==="inside").indexOf(page)+1;
       $("book-page-indicator").textContent=`PAGE ${String(current).padStart(2,"0")} / ${String(insideTotal).padStart(2,"0")}`;
     }
     $("prev-page").disabled=readerIndex===0;
@@ -2835,6 +2826,36 @@ const firebaseConfig = {
     const shell=$("reader-spread");
     const page=readerPages[readerIndex];
     const isUploadedSingle=page && (page.readerType==="cover"||page.readerType==="back");
+    const isMobileHalf=page&&!!page.mobileHalf;
+
+    if(isMobileHalf){
+      const img=shell.querySelector(".page-main");
+      if(!img)return;
+
+      const applyHalfFit=()=>{
+        const naturalW=img.naturalWidth||2;
+        const naturalH=img.naturalHeight||1;
+        const halfRatio=(naturalW/2)/naturalH;
+        const maxWidth=Math.min(window.innerWidth-20,520);
+        const maxHeight=Math.max(280,window.innerHeight-150);
+        let width=maxWidth;
+        let height=width/halfRatio;
+
+        if(height>maxHeight){
+          height=maxHeight;
+          width=height*halfRatio;
+        }
+
+        shell.style.width=`${Math.round(width)}px`;
+        shell.style.height=`${Math.round(height)}px`;
+        shell.style.maxWidth="none";
+        shell.style.aspectRatio="auto";
+      };
+
+      if(img.complete) applyHalfFit();
+      else img.addEventListener("load",applyHalfFit,{once:true});
+      return;
+    }
 
     if(!isUploadedSingle){
       shell.style.width="";
