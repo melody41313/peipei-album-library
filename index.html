@@ -1200,7 +1200,7 @@ button{cursor:pointer}
 }
 .reader-shell.is-inside-page .page-main{
   object-fit:contain!important;
-  background:#111!important;
+  background:transparent!important;
 }
 .reader-shell.is-uploaded-cover .reader-caption,
 .reader-shell.is-uploaded-back .reader-caption{
@@ -1444,10 +1444,10 @@ body.reader-fullscreen .reader-shell.is-uploaded-back .page-main{
 body.reader-fullscreen .reader-actions{display:none!important}
 body.reader-fullscreen .reader-shell.is-inside-page .page-main{
   object-fit:contain!important;
-  background:#111!important;
+  background:transparent!important;
 }
 body.reader-fullscreen .reader-shell.is-inside-page{
-  background:#111!important;
+  background:transparent!important;
 }
 body.reader-fullscreen .reader-shell.is-inside-page .center-gutter{
   display:block!important;
@@ -1501,6 +1501,10 @@ body.reader-fullscreen .fullscreen-exit-btn{display:grid!important;place-items:c
 .tablet-tip,
 .landscape-reading-overlay{
   display:none!important;
+}
+.reader-shell.is-inside-page,
+.reader-shell.is-inside-page .reader-page{
+  background:transparent!important;
 }
 
 /* V16 — portrait phones and tablets show each half as one page */
@@ -2065,7 +2069,7 @@ const firebaseConfig = {
     $(id).classList.add("active");
     document.body.classList.toggle("reader-active",id==="view-book");
     document.documentElement.classList.toggle("reader-active-root",id==="view-book");
-    window.scrollTo({top:0,behavior:"smooth"});
+    window.scrollTo({top:0,behavior:"auto"});
   }
 
   function escapeHtml(value){
@@ -3044,8 +3048,7 @@ const firebaseConfig = {
     const page=readerPages[readerIndex];
     const isUploadedSingle=page && (page.readerType==="cover"||page.readerType==="back");
     const isMobileHalf=page&&!!page.mobileHalf;
-    const isMobileLandscapeSpread=page&&page.readerType==="inside"&&!page.mobileHalf&&
-      !isPortrait()&&(isPhone()||isTablet());
+    const isFullSpread=page&&page.readerType==="inside"&&!page.mobileHalf;
 
     if(isMobileHalf){
       const img=shell.querySelector(".mobile-half-image");
@@ -3076,7 +3079,7 @@ const firebaseConfig = {
       return;
     }
 
-    if(isMobileLandscapeSpread){
+    if(isFullSpread){
       const img=shell.querySelector(".page-main");
       if(!img)return;
 
@@ -3084,8 +3087,14 @@ const firebaseConfig = {
         const naturalW=img.naturalWidth||16;
         const naturalH=img.naturalHeight||9;
         const ratio=naturalW/naturalH;
-        const maxWidth=Math.max(320,window.innerWidth-8);
-        const maxHeight=Math.max(220,window.innerHeight-8);
+        const mobileLandscape=!isPortrait()&&(isPhone()||isTablet());
+        const stageWidth=$("reader-spread").parentElement?.clientWidth||window.innerWidth;
+        const maxWidth=mobileLandscape
+          ? Math.max(320,window.innerWidth-8)
+          : Math.max(320,Math.min(stageWidth-132,1200));
+        const maxHeight=mobileLandscape
+          ? Math.max(220,window.innerHeight-8)
+          : Math.max(320,Math.min(window.innerHeight-120,820));
         let width=maxWidth;
         let height=width/ratio;
 
@@ -3230,7 +3239,6 @@ const firebaseConfig = {
     }
     exitReaderFullscreenState();
     switchView("view-library");
-    renderLibrary();
   });
 
 
