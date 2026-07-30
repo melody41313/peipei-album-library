@@ -1539,20 +1539,29 @@ body.reader-fullscreen .fullscreen-exit-btn{display:grid!important;place-items:c
     max-width:none!important;
     background:#111!important;
   }
-  .reader-shell.is-mobile-half .page-main{
-    top:0!important;
-    bottom:auto!important;
-    left:0!important;
-    right:auto!important;
-    width:200%!important;
-    max-width:none!important;
-    height:auto!important;
-    object-fit:contain!important;
-    transform:translateY(-50%);
-    top:50%!important;
+  .mobile-page-slice{
+    position:absolute;
+    inset:0;
+    z-index:1;
+    overflow:hidden;
+    background:#111;
   }
-  .reader-shell.is-mobile-half[data-mobile-half="right"] .page-main{
-    transform:translate(-50%,-50%);
+  .mobile-page-slice img{
+    position:absolute;
+    top:0;
+    bottom:auto;
+    left:0;
+    width:auto!important;
+    max-width:none!important;
+    height:100%!important;
+    min-width:0!important;
+    object-fit:initial!important;
+    transform:none!important;
+    display:block;
+  }
+  .reader-shell.is-mobile-half[data-mobile-half="right"] .mobile-page-slice img{
+    left:auto;
+    right:0;
   }
   .reader-shell.is-mobile-half .center-gutter{
     display:none!important;
@@ -2899,6 +2908,16 @@ const firebaseConfig = {
       };
       return `<div class="reader-generated">${generatedCoverHtml(backAlbum)}</div>`;
     }
+    if(page.mobileHalf){
+      return `
+        <div class="mobile-page-slice">
+          <img class="mobile-half-image" src="${page.dataUrl}" alt="${escapeHtml(page.caption||readerAlbum.title)}">
+        </div>
+        <div class="reader-caption">
+          <div class="caption">${escapeHtml(page.caption||"")}</div>
+          <div class="folio">${String(index).padStart(2,"0")}</div>
+        </div>`;
+    }
     return `
       <img class="page-main" src="${page.dataUrl}" alt="${escapeHtml(page.caption||readerAlbum.title)}">
       <div class="center-gutter"></div>
@@ -2946,7 +2965,7 @@ const firebaseConfig = {
     const isMobileHalf=page&&!!page.mobileHalf;
 
     if(isMobileHalf){
-      const img=shell.querySelector(".page-main");
+      const img=shell.querySelector(".mobile-half-image");
       if(!img)return;
 
       const applyHalfFit=()=>{
