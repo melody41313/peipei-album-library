@@ -1501,6 +1501,39 @@ body.reader-fullscreen .fullscreen-exit-btn{display:grid!important;place-items:c
 
 /* V16 — portrait phones and tablets show each half as one page */
 @media(max-width:1024px) and (orientation:portrait){
+  html.reader-active-root,
+  body.reader-active{
+    width:100%;
+    height:100dvh;
+    overflow:hidden!important;
+    overscroll-behavior:none;
+  }
+  body.reader-active #view-book.active{
+    display:flex!important;
+    flex-direction:column;
+    width:100%;
+    height:100dvh;
+    min-height:0!important;
+    padding:10px 4px 8px!important;
+    overflow:hidden!important;
+    touch-action:pan-x;
+  }
+  body.reader-active .book-topbar{
+    flex:0 0 auto;
+    min-height:42px;
+    margin-bottom:6px!important;
+    padding:0 8px;
+  }
+  body.reader-active .stage{
+    flex:1 1 auto;
+    width:100%!important;
+    min-height:0;
+    overflow:hidden;
+  }
+  body.reader-active .swipe-hint,
+  body.reader-active .book-hint{
+    display:none!important;
+  }
   .reader-shell.is-mobile-half{
     min-height:0!important;
     max-width:none!important;
@@ -1513,12 +1546,13 @@ body.reader-fullscreen .fullscreen-exit-btn{display:grid!important;place-items:c
     right:auto!important;
     width:200%!important;
     max-width:none!important;
-    height:100%!important;
-    object-fit:fill!important;
-    transform:none;
+    height:auto!important;
+    object-fit:contain!important;
+    transform:translateY(-50%);
+    top:50%!important;
   }
   .reader-shell.is-mobile-half[data-mobile-half="right"] .page-main{
-    transform:translateX(-50%);
+    transform:translate(-50%,-50%);
   }
   .reader-shell.is-mobile-half .center-gutter{
     display:none!important;
@@ -1527,6 +1561,41 @@ body.reader-fullscreen .fullscreen-exit-btn{display:grid!important;place-items:c
     left:14px!important;
     right:14px!important;
     bottom:12px!important;
+  }
+}
+
+@media(max-width:1024px) and (orientation:landscape){
+  html.reader-active-root,
+  body.reader-active{
+    width:100%;
+    height:100dvh;
+    overflow:hidden!important;
+    overscroll-behavior:none;
+  }
+  body.reader-active #view-book.active{
+    display:flex!important;
+    flex-direction:column;
+    width:100%;
+    height:100dvh;
+    min-height:0!important;
+    padding:6px 8px!important;
+    overflow:hidden!important;
+    touch-action:pan-x;
+  }
+  body.reader-active .book-topbar{
+    flex:0 0 auto;
+    min-height:38px;
+    margin-bottom:4px!important;
+  }
+  body.reader-active .stage{
+    flex:1 1 auto;
+    width:100%!important;
+    min-height:0;
+    overflow:hidden;
+  }
+  body.reader-active .swipe-hint,
+  body.reader-active .book-hint{
+    display:none!important;
   }
 }
 
@@ -1904,6 +1973,8 @@ const firebaseConfig = {
   function switchView(id){
     document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
     $(id).classList.add("active");
+    document.body.classList.toggle("reader-active",id==="view-book");
+    document.documentElement.classList.toggle("reader-active-root",id==="view-book");
     window.scrollTo({top:0,behavior:"smooth"});
   }
 
@@ -2882,8 +2953,8 @@ const firebaseConfig = {
         const naturalW=img.naturalWidth||2;
         const naturalH=img.naturalHeight||1;
         const halfRatio=(naturalW/2)/naturalH;
-        const maxWidth=Math.min(window.innerWidth-32,820);
-        const maxHeight=Math.max(280,window.innerHeight-150);
+        const maxWidth=Math.min(window.innerWidth-8,920);
+        const maxHeight=Math.max(280,window.innerHeight-66);
         let width=maxWidth;
         let height=width/halfRatio;
 
