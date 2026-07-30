@@ -1489,6 +1489,55 @@ body.reader-fullscreen .fullscreen-exit-btn{display:grid!important;place-items:c
 }
 .landscape-reading-card .btn{width:100%;margin-top:8px}
 
+/* V16 — larger mobile reading canvas */
+@media(max-width:760px){
+  #view-book{
+    padding:10px 8px 18px!important;
+  }
+  .book-topbar{
+    min-height:44px;
+    margin-bottom:8px!important;
+    padding:0 4px;
+  }
+  .book-topbar .back-btn{
+    font-size:12px;
+    white-space:nowrap;
+  }
+  .book-topbar>div:last-child{
+    width:58px!important;
+  }
+  .stage{
+    width:100%!important;
+    max-width:none!important;
+  }
+  .reader-shell{
+    width:100%!important;
+    height:calc(100dvh - 154px)!important;
+    min-height:420px!important;
+    max-height:none!important;
+  }
+  .reader-shell.is-single{
+    width:min(88vw,440px)!important;
+    max-width:min(88vw,440px)!important;
+    height:calc(100dvh - 154px)!important;
+    min-height:0!important;
+  }
+  .reader-actions{margin-top:9px}
+  .swipe-hint{margin-top:7px}
+}
+
+@media(max-width:430px) and (orientation:portrait){
+  .reader-shell{
+    height:calc(100dvh - 148px)!important;
+    min-height:360px!important;
+  }
+  .reader-shell.is-single{
+    width:90vw!important;
+    max-width:90vw!important;
+    height:calc(100dvh - 148px)!important;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -2728,6 +2777,7 @@ const firebaseConfig = {
     $("book-title-text").textContent=readerAlbum.title||"未命名";
     switchView("view-book");
     renderReaderPage();
+    requestAnimationFrame(()=>prepareMobileReading());
   }
 
   function getReaderPageHtml(page, index=readerIndex){
