@@ -1542,7 +1542,7 @@ body.reader-inside #view-book .stage{
     min-height:0!important;
     padding:10px 4px 8px!important;
     overflow:hidden!important;
-    touch-action:none;
+    touch-action:pinch-zoom;
   }
   body.reader-active .book-topbar{
     flex:0 0 auto;
@@ -1616,7 +1616,7 @@ body.reader-inside #view-book .stage{
     padding:6px 8px!important;
     overflow:hidden!important;
     background:#fff!important;
-    touch-action:none;
+    touch-action:pinch-zoom;
   }
   body.reader-active .book-topbar{
     position:fixed;
@@ -1651,63 +1651,13 @@ body.reader-inside #view-book .stage{
     overflow:hidden;
     background:transparent!important;
   }
-  body.reader-active .reader-zoom-controls{
-    left:auto;
-    right:12px;
-    bottom:max(10px,env(safe-area-inset-bottom));
-    transform:none;
-  }
   body.reader-active .swipe-hint,
   body.reader-active .book-hint{
     display:none!important;
   }
 }
 
-.reader-zoom-controls{
-  position:fixed;
-  left:50%;
-  bottom:max(12px,env(safe-area-inset-bottom));
-  z-index:645;
-  display:none;
-  align-items:center;
-  gap:2px;
-  padding:2px;
-  border:1px solid rgba(255,255,255,.2);
-  border-radius:999px;
-  background:rgba(28,26,22,.76);
-  color:#fff;
-  box-shadow:0 5px 16px rgba(0,0,0,.14);
-  backdrop-filter:blur(10px);
-  transform:translateX(-50%);
-}
-.reader-zoom-controls button{
-  width:30px;
-  height:28px;
-  padding:0;
-  border:0;
-  border-radius:999px;
-  background:transparent;
-  color:inherit;
-  font-size:17px;
-}
-.reader-zoom-controls button:active{background:rgba(255,255,255,.16)}
-.reader-zoom-controls .zoom-value{
-  min-width:54px;
-  font:12px/1 "Cormorant Garamond",serif;
-  letter-spacing:.05em;
-  display:none;
-}
-@media(max-width:1024px){
-  body.reader-active .reader-zoom-controls{display:flex}
-  body.reader-active #reader-spread{touch-action:none}
-  body.reader-active #reader-spread.is-zooming{cursor:grab}
-  body.reader-active #reader-spread.is-zooming:active{cursor:grabbing}
-  body.reader-active #reader-spread .reader-page{
-    transform-origin:center center;
-    will-change:transform;
-  }
-}
-#reader-spread{touch-action:none}
+#reader-spread{touch-action:pinch-zoom}
 
 </style>
 </head>
@@ -1832,11 +1782,6 @@ body.reader-inside #view-book .stage{
     </div>
 
     <button class="fullscreen-exit-btn hidden" id="fullscreen-exit-btn" type="button" aria-label="離開全螢幕">×</button>
-    <div class="reader-zoom-controls" id="reader-zoom-controls" aria-label="圖片縮放控制">
-      <button type="button" id="reader-zoom-out" aria-label="縮小">−</button>
-      <button type="button" class="zoom-value" id="reader-zoom-reset" aria-label="恢復原始大小">100%</button>
-      <button type="button" id="reader-zoom-in" aria-label="放大">＋</button>
-    </div>
     <div class="stage">
       <button class="nav-arrow" id="prev-page">‹</button>
       <div class="reader-shell" id="reader-spread"></div>
@@ -3179,7 +3124,6 @@ const firebaseConfig = {
     shell.innerHTML=`<div class="reader-page">${getReaderPageHtml(page,readerIndex)}</div>`;
     updateReaderMeta(page);
     fitUploadedSinglePage();
-    resetReaderZoom();
   }
 
   let isFlipping=false;
@@ -3193,7 +3137,6 @@ const firebaseConfig = {
     shell.innerHTML=`<div class="reader-page">${getReaderPageHtml(nextPage,readerIndex)}</div>`;
     updateReaderMeta(nextPage);
     fitUploadedSinglePage();
-    resetReaderZoom();
   }
 
 
@@ -3265,110 +3208,47 @@ const firebaseConfig = {
   });
 
 
-  let readerZoom=1;
-  let readerPanX=0;
-  let readerPanY=0;
   let swipeStartX=0;
   let swipeStartY=0;
-  let panStartX=0;
-  let panStartY=0;
-  let panOriginX=0;
-  let panOriginY=0;
-  let pinchStartDistance=0;
-  let pinchStartZoom=1;
-  let gestureWasPinch=false;
-
-  function clamp(value,min,max){
-    return Math.min(max,Math.max(min,value));
-  }
-
-  function applyReaderZoom(animate=false){
-    const shell=$("reader-spread");
-    const page=shell.querySelector(".reader-page");
-    if(!page)return;
-    const maxX=(readerZoom-1)*shell.clientWidth/2;
-    const maxY=(readerZoom-1)*shell.clientHeight/2;
-    readerPanX=clamp(readerPanX,-maxX,maxX);
-    readerPanY=clamp(readerPanY,-maxY,maxY);
-    page.style.transition=animate?"transform .2s ease":"none";
-    page.style.transform=`translate3d(${readerPanX}px,${readerPanY}px,0) scale(${readerZoom})`;
-    shell.classList.toggle("is-zooming",readerZoom>1.001);
-    $("reader-zoom-reset").textContent=`${Math.round(readerZoom*100)}%`;
-  }
-
-  function setReaderZoom(value,animate=true){
-    readerZoom=clamp(value,1,3);
-    if(readerZoom===1){
-      readerPanX=0;
-      readerPanY=0;
-    }
-    applyReaderZoom(animate);
-  }
-
-  function resetReaderZoom(){
-    readerZoom=1;
-    readerPanX=0;
-    readerPanY=0;
-    applyReaderZoom(false);
-  }
-
-  $("reader-zoom-in").addEventListener("click",()=>setReaderZoom(readerZoom+.25));
-  $("reader-zoom-out").addEventListener("click",()=>setReaderZoom(readerZoom-.25));
-  $("reader-zoom-reset").addEventListener("click",()=>resetReaderZoom());
-
-  function touchDistance(touches){
-    const dx=touches[0].clientX-touches[1].clientX;
-    const dy=touches[0].clientY-touches[1].clientY;
-    return Math.hypot(dx,dy);
-  }
+  let gestureHadMultipleTouches=false;
 
   $("reader-spread").addEventListener("touchstart",e=>{
-    if(e.touches.length===2){
-      gestureWasPinch=true;
-      pinchStartDistance=touchDistance(e.touches);
-      pinchStartZoom=readerZoom;
+    if(e.touches.length>1){
+      gestureHadMultipleTouches=true;
       return;
     }
     const t=e.touches[0];
     swipeStartX=t.clientX;
     swipeStartY=t.clientY;
-    panStartX=t.clientX;
-    panStartY=t.clientY;
-    panOriginX=readerPanX;
-    panOriginY=readerPanY;
-  },{passive:false});
+  },{passive:true});
 
   $("reader-spread").addEventListener("touchmove",e=>{
-    e.preventDefault();
-    if(e.touches.length===2&&pinchStartDistance){
-      setReaderZoom(pinchStartZoom*(touchDistance(e.touches)/pinchStartDistance),false);
+    if(e.touches.length>1){
+      gestureHadMultipleTouches=true;
       return;
     }
-    if(e.touches.length===1&&readerZoom>1){
+    if(e.touches.length===1){
       const t=e.touches[0];
-      readerPanX=panOriginX+(t.clientX-panStartX);
-      readerPanY=panOriginY+(t.clientY-panStartY);
-      applyReaderZoom(false);
+      const dx=t.clientX-swipeStartX;
+      const dy=t.clientY-swipeStartY;
+      if(Math.abs(dx)>Math.abs(dy)&&e.cancelable)e.preventDefault();
     }
   },{passive:false});
 
   $("reader-spread").addEventListener("touchend",e=>{
     if(e.touches.length>0)return;
-    if(gestureWasPinch){
-      gestureWasPinch=false;
-      pinchStartDistance=0;
-      if(readerZoom<1.08)setReaderZoom(1,true);
+    if(gestureHadMultipleTouches){
+      gestureHadMultipleTouches=false;
       return;
     }
     const t=e.changedTouches[0];
     const dx=t.clientX-swipeStartX;
     const dy=t.clientY-swipeStartY;
-    pinchStartDistance=0;
-    if(readerZoom<=1.001&&Math.abs(dx)>34&&Math.abs(dx)>Math.abs(dy)){
+    if(Math.abs(dx)>34&&Math.abs(dx)>Math.abs(dy)){
       flipPage(dx<0?1:-1);
       return;
     }
-    if(readerZoom<=1.001&&Math.abs(dx)<12&&Math.abs(dy)<12){
+    if(Math.abs(dx)<12&&Math.abs(dy)<12){
       const rect=$("reader-spread").getBoundingClientRect();
       const position=(t.clientX-rect.left)/rect.width;
       if(position<.24)flipPage(-1);
@@ -3377,11 +3257,7 @@ const firebaseConfig = {
   },{passive:false});
 
   $("reader-spread").addEventListener("touchcancel",()=>{
-    gestureWasPinch=false;
-    pinchStartDistance=0;
-    panStartX=0;
-    panStartY=0;
-    if(readerZoom<1.08)setReaderZoom(1,false);
+    gestureHadMultipleTouches=false;
   },{passive:true});
 
 
