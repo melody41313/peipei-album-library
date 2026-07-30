@@ -434,7 +434,11 @@ button{cursor:pointer}
   display:flex;align-items:center;justify-content:space-between;gap:16px;
 }
 .back-btn{
-  border:0;background:transparent;color:var(--ink-soft);
+  padding:7px 12px;
+  border:1px solid rgba(46,42,34,.18);
+  border-radius:999px;
+  background:rgba(255,255,255,.16);
+  color:var(--ink-soft);
 }
 .book-heading{text-align:center}
 .book-heading .t{font-size:18px;font-weight:700}
@@ -1218,7 +1222,7 @@ button{cursor:pointer}
 }
 .reader-shell.is-uploaded-cover .page-main,
 .reader-shell.is-uploaded-back .page-main{
-  object-fit:fill!important;
+  object-fit:contain!important;
   background:transparent!important;
 }
 @media(max-width:760px){
@@ -1608,8 +1612,9 @@ body.reader-fullscreen .fullscreen-exit-btn{display:grid!important;place-items:c
   body.reader-active .book-topbar .back-btn{
     min-height:38px;
     padding:8px 13px;
+    border:1px solid rgba(255,255,255,.46);
     border-radius:999px;
-    background:rgba(24,23,20,.62);
+    background:rgba(24,23,20,.22);
     color:#fff;
     box-shadow:0 6px 20px rgba(0,0,0,.18);
     backdrop-filter:blur(8px);
@@ -1665,6 +1670,7 @@ body.reader-fullscreen .fullscreen-exit-btn{display:grid!important;place-items:c
   min-width:54px;
   font:12px/1 "Cormorant Garamond",serif;
   letter-spacing:.05em;
+  display:none;
 }
 @media(max-width:1024px){
   body.reader-active .reader-zoom-controls{display:flex}
@@ -3049,7 +3055,7 @@ const firebaseConfig = {
         const naturalW=img.naturalWidth||2;
         const naturalH=img.naturalHeight||1;
         const halfRatio=(naturalW/2)/naturalH;
-        const maxWidth=Math.min(window.innerWidth-8,920);
+        const maxWidth=Math.min(window.innerWidth*.86,820);
         const maxHeight=Math.max(280,window.innerHeight-66);
         let width=maxWidth;
         let height=width/halfRatio;
@@ -3115,12 +3121,18 @@ const firebaseConfig = {
       const naturalH=img.naturalHeight||4;
       const ratio=naturalW/naturalH;
 
-      const maxHeight=Math.min(window.innerHeight*0.74,760);
-      const maxWidth=Math.min(window.innerWidth*0.86,680);
-      const scale=Math.min(maxWidth/naturalW,maxHeight/naturalH);
+      const maxHeight=Math.min(window.innerHeight*.78,760);
+      const maxWidth=Math.min(window.innerWidth*.86,680);
+      let width=maxWidth;
+      let height=width/ratio;
 
-      shell.style.width=`${Math.max(220,naturalW*scale)}px`;
-      shell.style.height=`${Math.max(280,naturalH*scale)}px`;
+      if(height>maxHeight){
+        height=maxHeight;
+        width=height*ratio;
+      }
+
+      shell.style.width=`${Math.round(width)}px`;
+      shell.style.height=`${Math.round(height)}px`;
       shell.style.maxWidth="none";
       shell.style.aspectRatio="auto";
     };
