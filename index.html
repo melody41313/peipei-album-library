@@ -1195,7 +1195,8 @@ button{cursor:pointer}
   background:#f4efe6!important;
 }
 .reader-shell.is-inside-page .page-main{
-  object-fit:cover!important;
+  object-fit:contain!important;
+  background:#111!important;
 }
 .reader-shell.is-uploaded-cover .reader-caption,
 .reader-shell.is-uploaded-back .reader-caption{
@@ -1489,8 +1490,17 @@ body.reader-fullscreen .fullscreen-exit-btn{display:grid!important;place-items:c
 }
 .landscape-reading-card .btn{width:100%;margin-top:8px}
 
-/* V16 — on phones, show each half of an uploaded spread as one page */
-@media(max-width:760px){
+/* Reading mode follows device orientation automatically; no prompts required. */
+.reader-actions,
+.reader-start-overlay,
+.rotate-device-overlay,
+.tablet-tip,
+.landscape-reading-overlay{
+  display:none!important;
+}
+
+/* V16 — portrait phones and tablets show each half as one page */
+@media(max-width:1024px) and (orientation:portrait){
   .reader-shell.is-mobile-half{
     min-height:0!important;
     max-width:none!important;
@@ -1867,8 +1877,10 @@ const firebaseConfig = {
   let selectedCoverStyle = "minimal";
   let selectedCoverEmoji = "♡";
   let readerAlbum = null;
+  let readerRawPages = [];
   let readerPages = [];
   let readerIndex = 0;
+  let readerUsesSplitPages = false;
   let selectedUploadType = "inside";
   let coverBuilderType = "cover";
   let coverBuilderAlbum = null;
@@ -2696,6 +2708,7 @@ const firebaseConfig = {
 
 
   window.addEventListener("resize",async()=>{
+    rebuildReaderForOrientation();
     if(pendingLandscapeStart && isPhone() && !isPortrait()){
       hide($("rotate-device-overlay"));
       hide($("landscape-reading-overlay"));
@@ -2723,6 +2736,7 @@ const firebaseConfig = {
 
   window.addEventListener("orientationchange",()=>{
     setTimeout(async()=>{
+      rebuildReaderForOrientation();
       if(pendingLandscapeStart && isPhone() && !isPortrait()){
         hide($("rotate-device-overlay"));
         hide($("landscape-reading-overlay"));
@@ -2743,13 +2757,28 @@ const firebaseConfig = {
     const doc=await db.collection("albums").doc(albumId).get();
     if(!doc.exists)return;
     readerAlbum={id:doc.id,...doc.data()};
-    const all=await getAlbumPages(albumId);
+    readerRawPages=await getAlbumPages(albumId);
+    buildReaderPages();
+
+    readerIndex=0;
+    $("book-title-text").textContent=readerAlbum.title||"未命名";
+    switchView("view-book");
+    renderReaderPage();
+  }
+
+  function shouldSplitReaderSpreads(){
+    return isPortrait()&&(isPhone()||isTablet());
+  }
+
+  function buildReaderPages(){
+    const all=readerRawPages;
 
     const cover=all.find(p=>p.pageType==="cover");
     const inside=all.filter(p=>p.pageType==="inside"||!p.pageType).sort((a,b)=>a.order-b.order);
     const back=all.find(p=>p.pageType==="back");
+    readerUsesSplitPages=shouldSplitReaderSpreads();
 
-    const insideReaderPages=isPhone()
+    const insideReaderPages=readerUsesSplitPages
       ? inside.flatMap((p,spreadIndex)=>[
           {...p,readerType:"inside",mobileHalf:"left",spreadIndex},
           {...p,readerType:"inside",mobileHalf:"right",spreadIndex}
@@ -2761,10 +2790,27 @@ const firebaseConfig = {
       ...insideReaderPages,
       back?{...back,readerType:"back"}:{readerType:"generatedBack"}
     ];
+  }
 
-    readerIndex=0;
-    $("book-title-text").textContent=readerAlbum.title||"未命名";
-    switchView("view-book");
+  function rebuildReaderForOrientation(){
+    if(!$("view-book").classList.contains("active")||!readerRawPages.length)return;
+    const shouldSplit=shouldSplitReaderSpreads();
+    if(shouldSplit===readerUsesSplitPages)return;
+
+    const current=readerPages[readerIndex];
+    const currentId=current?.id||null;
+    const currentType=current?.readerType;
+    buildReaderPages();
+
+    let nextIndex=-1;
+    if(currentId){
+      nextIndex=readerPages.findIndex(page=>
+        page.id===currentId&&(!shouldSplit||page.mobileHalf==="left")
+      );
+    }else{
+      nextIndex=readerPages.findIndex(page=>page.readerType===currentType);
+    }
+    readerIndex=Math.max(0,nextIndex);
     renderReaderPage();
   }
 
@@ -2836,7 +2882,7 @@ const firebaseConfig = {
         const naturalW=img.naturalWidth||2;
         const naturalH=img.naturalHeight||1;
         const halfRatio=(naturalW/2)/naturalH;
-        const maxWidth=Math.min(window.innerWidth-20,520);
+        const maxWidth=Math.min(window.innerWidth-32,820);
         const maxHeight=Math.max(280,window.innerHeight-150);
         let width=maxWidth;
         let height=width/halfRatio;
@@ -2996,6 +3042,7 @@ const firebaseConfig = {
 
   window.addEventListener("resize",()=>{
     if($("view-book").classList.contains("active")){
+      rebuildReaderForOrientation();
       fitUploadedSinglePage();
     }
   });
