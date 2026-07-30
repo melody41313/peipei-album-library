@@ -1,4 +1,4 @@
-const CACHE_NAME = "peipei-album-library-v6";
+const CACHE_NAME = "peipei-album-library-v7";
 const APP_SHELL = [
   "./",
   "./index.html",

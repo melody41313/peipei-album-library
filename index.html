@@ -1516,7 +1516,7 @@ body.reader-fullscreen .fullscreen-exit-btn{display:grid!important;place-items:c
     min-height:0!important;
     padding:10px 4px 8px!important;
     overflow:hidden!important;
-    touch-action:pan-x;
+    touch-action:none;
   }
   body.reader-active .book-topbar{
     flex:0 0 auto;
@@ -1589,7 +1589,7 @@ body.reader-fullscreen .fullscreen-exit-btn{display:grid!important;place-items:c
     min-height:0!important;
     padding:6px 8px!important;
     overflow:hidden!important;
-    touch-action:pan-x;
+    touch-action:none;
   }
   body.reader-active .book-topbar{
     flex:0 0 auto;
@@ -1605,6 +1605,50 @@ body.reader-fullscreen .fullscreen-exit-btn{display:grid!important;place-items:c
   body.reader-active .swipe-hint,
   body.reader-active .book-hint{
     display:none!important;
+  }
+}
+
+.reader-zoom-controls{
+  position:fixed;
+  left:50%;
+  bottom:max(12px,env(safe-area-inset-bottom));
+  z-index:645;
+  display:none;
+  align-items:center;
+  gap:2px;
+  padding:4px;
+  border:1px solid rgba(255,255,255,.2);
+  border-radius:999px;
+  background:rgba(28,26,22,.76);
+  color:#fff;
+  box-shadow:0 8px 26px rgba(0,0,0,.22);
+  backdrop-filter:blur(10px);
+  transform:translateX(-50%);
+}
+.reader-zoom-controls button{
+  width:38px;
+  height:34px;
+  padding:0;
+  border:0;
+  border-radius:999px;
+  background:transparent;
+  color:inherit;
+  font-size:20px;
+}
+.reader-zoom-controls button:active{background:rgba(255,255,255,.16)}
+.reader-zoom-controls .zoom-value{
+  min-width:54px;
+  font:12px/1 "Cormorant Garamond",serif;
+  letter-spacing:.05em;
+}
+@media(max-width:1024px){
+  body.reader-active .reader-zoom-controls{display:flex}
+  body.reader-active #reader-spread{touch-action:none}
+  body.reader-active #reader-spread.is-zooming{cursor:grab}
+  body.reader-active #reader-spread.is-zooming:active{cursor:grabbing}
+  body.reader-active #reader-spread .reader-page{
+    transform-origin:center center;
+    will-change:transform;
   }
 }
 
@@ -1731,6 +1775,11 @@ body.reader-fullscreen .fullscreen-exit-btn{display:grid!important;place-items:c
     </div>
 
     <button class="fullscreen-exit-btn hidden" id="fullscreen-exit-btn" type="button" aria-label="離開全螢幕">×</button>
+    <div class="reader-zoom-controls" id="reader-zoom-controls" aria-label="圖片縮放控制">
+      <button type="button" id="reader-zoom-out" aria-label="縮小">−</button>
+      <button type="button" class="zoom-value" id="reader-zoom-reset" aria-label="恢復原始大小">100%</button>
+      <button type="button" id="reader-zoom-in" aria-label="放大">＋</button>
+    </div>
     <div class="stage">
       <button class="nav-arrow" id="prev-page">‹</button>
       <div class="reader-shell" id="reader-spread"></div>
@@ -3029,6 +3078,7 @@ const firebaseConfig = {
     shell.innerHTML=`<div class="reader-page">${getReaderPageHtml(page,readerIndex)}</div>`;
     updateReaderMeta(page);
     fitUploadedSinglePage();
+    resetReaderZoom();
   }
 
   let isFlipping=false;
@@ -3042,6 +3092,7 @@ const firebaseConfig = {
     shell.innerHTML=`<div class="reader-page">${getReaderPageHtml(nextPage,readerIndex)}</div>`;
     updateReaderMeta(nextPage);
     fitUploadedSinglePage();
+    resetReaderZoom();
   }
 
 
@@ -3114,20 +3165,108 @@ const firebaseConfig = {
   });
 
 
+  let readerZoom=1;
+  let readerPanX=0;
+  let readerPanY=0;
   let swipeStartX=0;
   let swipeStartY=0;
+  let panStartX=0;
+  let panStartY=0;
+  let panOriginX=0;
+  let panOriginY=0;
+  let pinchStartDistance=0;
+  let pinchStartZoom=1;
+  let gestureWasPinch=false;
+
+  function clamp(value,min,max){
+    return Math.min(max,Math.max(min,value));
+  }
+
+  function applyReaderZoom(animate=false){
+    const shell=$("reader-spread");
+    const page=shell.querySelector(".reader-page");
+    if(!page)return;
+    const maxX=(readerZoom-1)*shell.clientWidth/2;
+    const maxY=(readerZoom-1)*shell.clientHeight/2;
+    readerPanX=clamp(readerPanX,-maxX,maxX);
+    readerPanY=clamp(readerPanY,-maxY,maxY);
+    page.style.transition=animate?"transform .2s ease":"none";
+    page.style.transform=`translate3d(${readerPanX}px,${readerPanY}px,0) scale(${readerZoom})`;
+    shell.classList.toggle("is-zooming",readerZoom>1.001);
+    $("reader-zoom-reset").textContent=`${Math.round(readerZoom*100)}%`;
+  }
+
+  function setReaderZoom(value,animate=true){
+    readerZoom=clamp(value,1,3);
+    if(readerZoom===1){
+      readerPanX=0;
+      readerPanY=0;
+    }
+    applyReaderZoom(animate);
+  }
+
+  function resetReaderZoom(){
+    readerZoom=1;
+    readerPanX=0;
+    readerPanY=0;
+    applyReaderZoom(false);
+  }
+
+  $("reader-zoom-in").addEventListener("click",()=>setReaderZoom(readerZoom+.25));
+  $("reader-zoom-out").addEventListener("click",()=>setReaderZoom(readerZoom-.25));
+  $("reader-zoom-reset").addEventListener("click",()=>resetReaderZoom());
+
+  function touchDistance(touches){
+    const dx=touches[0].clientX-touches[1].clientX;
+    const dy=touches[0].clientY-touches[1].clientY;
+    return Math.hypot(dx,dy);
+  }
+
   $("reader-spread").addEventListener("touchstart",e=>{
-    const t=e.changedTouches[0];
-    swipeStartX=t.clientX;swipeStartY=t.clientY;
-  },{passive:true});
+    if(e.touches.length===2){
+      gestureWasPinch=true;
+      pinchStartDistance=touchDistance(e.touches);
+      pinchStartZoom=readerZoom;
+      return;
+    }
+    const t=e.touches[0];
+    swipeStartX=t.clientX;
+    swipeStartY=t.clientY;
+    panStartX=t.clientX;
+    panStartY=t.clientY;
+    panOriginX=readerPanX;
+    panOriginY=readerPanY;
+  },{passive:false});
+
+  $("reader-spread").addEventListener("touchmove",e=>{
+    e.preventDefault();
+    if(e.touches.length===2&&pinchStartDistance){
+      setReaderZoom(pinchStartZoom*(touchDistance(e.touches)/pinchStartDistance),false);
+      return;
+    }
+    if(e.touches.length===1&&readerZoom>1){
+      const t=e.touches[0];
+      readerPanX=panOriginX+(t.clientX-panStartX);
+      readerPanY=panOriginY+(t.clientY-panStartY);
+      applyReaderZoom(false);
+    }
+  },{passive:false});
+
   $("reader-spread").addEventListener("touchend",e=>{
+    if(e.touches.length>0)return;
+    if(gestureWasPinch){
+      gestureWasPinch=false;
+      pinchStartDistance=0;
+      return;
+    }
     const t=e.changedTouches[0];
     const dx=t.clientX-swipeStartX;
     const dy=t.clientY-swipeStartY;
-    if(Math.abs(dx)>55 && Math.abs(dx)>Math.abs(dy)*1.25){
+    pinchStartDistance=0;
+    if(readerZoom===1&&Math.abs(dx)>55&&Math.abs(dx)>Math.abs(dy)*1.25){
       flipPage(dx<0?1:-1);
     }
-  },{passive:true});
+  },{passive:false});
 
 
   window.addEventListener("resize",()=>{
